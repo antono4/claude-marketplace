@@ -87,7 +87,7 @@ user's setup.
 If GPT routing is enabled, smoke-test the delegation path end-to-end:
 
 ```bash
-codex exec -s read-only "Reply with exactly: OK"
+timeout 120 codex exec -s read-only "Reply with exactly: OK"
 ```
 
 (Add `--skip-git-repo-check` if the target directory isn't a git repository —
@@ -105,11 +105,16 @@ version:
 
 | Task shape | Command |
 |------------|---------|
-| Investigation / analysis | `codex exec -s read-only "<self-contained prompt>"` |
-| Implementation | `codex exec -s workspace-write "<spec>"` |
-| Code review | `codex review --base <branch>` (or `--uncommitted`) |
-| Capture final answer only | `codex exec -o /tmp/out.md "<prompt>"` |
-| Different model per-call | `codex exec -m <model> "<prompt>"` |
+| Investigation / analysis | `timeout 300 codex exec -s read-only "<self-contained prompt>"` |
+| Implementation | `timeout 900 codex exec -s workspace-write "<spec>"` |
+| Code review | `timeout 900 codex review --base <branch>` (or `--uncommitted`) |
+| Capture final answer only | `timeout 300 codex exec -o /tmp/out.md "<prompt>"` |
+| Different model per-call | `timeout 300 codex exec -m <model> "<prompt>"` |
+
+The `timeout` wrapper is **mandatory**, not decoration: `codex exec` can hang
+indefinitely at zero CPU on a dead network wait, and a hung exec is
+indistinguishable from a quietly-working one. On expiry, retry once or do the
+chunk without codex.
 
 Codex prompts must be **self-contained**: codex shares none of Claude's
 conversation context, so include absolute paths, the full task spec, and
@@ -124,5 +129,10 @@ acceptance criteria.
   approval — commands either run inside the sandbox or fail. If it can't
   write files, the sandbox was `read-only` (the default); rerun with
   `-s workspace-write`.
+- **A delegated task goes silent**: check CPU time vs process age
+  (`ps aux | grep "codex exec"`) — near-zero CPU on an hours-old process is a
+  hung network wait, not slow work. Kill the whole process chain and re-run
+  under `timeout`; see
+  [references/codex-cli.md](references/codex-cli.md#timeouts-and-hangs).
 - **Wrapper agents summarize instead of relaying**: the wrapper prompt must
   say "return the codex output verbatim as your final message".

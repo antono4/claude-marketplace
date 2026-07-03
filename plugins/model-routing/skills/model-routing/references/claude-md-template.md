@@ -69,6 +69,11 @@ How to apply:
   `codex exec -s workspace-write`; for code review run
   `codex review --base <branch>` or `codex review --uncommitted`. Capture
   just the final answer with `-o <file>` when you need programmatic output.
+- ALWAYS wrap codex in a hard timeout: `timeout 900 codex exec …` for
+  implementation, `timeout 300` for read-only calls. `codex exec` can hang
+  forever at zero CPU on a dead network wait, and a hung exec looks identical
+  to one working quietly. On timeout, retry once or do that chunk yourself —
+  never wait-and-see; a zero-CPU codex process does not recover.
 - Claude models (sonnet-5, opus-4.8, fable-5) run via the Agent/Workflow
   `model` parameter.
 
@@ -84,6 +89,13 @@ Claude models, so use a wrapper):
 - The codex prompt must be self-contained: codex shares none of the
   conversation's context. Include absolute file paths, the exact task spec,
   constraints, and acceptance criteria.
+- The wrapper prompt must carry the timeout rule explicitly ("ALWAYS wrap
+  codex in `timeout 900`; if it expires, kill it and do that chunk yourself
+  or retry once") — the wrapper is the process blocked on Bash when codex
+  hangs, so it cannot apply judgment after the fact.
+- Give each wrapper ONE codex task, or require a checkpoint report between
+  tasks — in a sequential relay, one hang stalls every task queued behind it,
+  and checkpoints are how you know what was already done at takeover time.
 - Pick the sandbox to match the task: `-s read-only` for
   investigation/review, `-s workspace-write` for implementation. Never
   `danger-full-access` from a subagent.

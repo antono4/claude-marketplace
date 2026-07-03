@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- model-routing skill (1.1.0): mandatory hard timeouts on every codex invocation, from a production incident (two `codex exec` chains hung 5+ hours at ~0.1 s CPU on dead network waits — a hung exec is indistinguishable from a quietly-working one, and a relay wrapper blocked on the Bash call can't even report status). Every example now ships wrapped in `timeout` (900 s implementation / 300 s read-only); new "Timeouts and hangs" reference section with the CPU-time-vs-process-age forensic and kill-the-whole-chain recovery; wrapper-agent pattern now requires the timeout rule verbatim in the wrapper prompt and one-codex-task-per-wrapper (or checkpoint reports). Also documents codex's built-in deadlines (`stream_idle_timeout_ms` 5 min, `stream_max_retries` 5, `request_max_retries` 4, MCP startup 30 s / tool 300 s — verified in the codex source) and why an external `timeout` is still required: the observed hangs happened with all built-ins at defaults
+
 ## [0.43.0] - 2026-07-01
 
 ### Added

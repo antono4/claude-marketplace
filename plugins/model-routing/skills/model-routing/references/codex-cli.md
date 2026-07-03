@@ -9,6 +9,7 @@ only what's needed to drive Codex headlessly from Claude Code; run
 
 - [codex exec](#codex-exec)
 - [Sandbox modes](#sandbox-modes)
+- [Timeouts and hangs](#timeouts-and-hangs)
 - [Capturing output](#capturing-output)
 - [codex review](#codex-review)
 - [codex exec resume](#codex-exec-resume)
@@ -74,6 +75,54 @@ Notes:
 - `danger-full-access` — no sandbox. Only for externally-sandboxed
   environments; never from a subagent.
 
+## Timeouts and hangs
+
+`codex exec` can hang **indefinitely at zero CPU** on a dead network wait (an
+API/stream call with no client-side deadline). Observed in production: two
+exec chains sat 5+ hours with ~0.1 s of CPU each, having never done any work —
+and a wrapper agent blocked on that Bash call can't even report status, so
+"hung" and "working quietly" look identical from the outside.
+
+**Always wrap codex in a hard timeout:**
+
+```bash
+timeout 900 codex exec -s workspace-write -C <dir> "<prompt>"   # implementation
+timeout 300 codex exec -s read-only "<prompt>"                  # investigation
+```
+
+On expiry, retry once or do the chunk without codex — never wait-and-see; a
+zero-CPU codex process does not recover.
+
+Codex has built-in deadlines, but they demonstrably don't cover every wait —
+the 5-hour hangs above happened with all of these at defaults, so treat them
+as a first line, not a guarantee:
+
+```toml
+[model_providers.<id>]
+stream_idle_timeout_ms = 300000   # abort a silent stream (default 5 min)
+stream_max_retries = 5            # stream reconnect attempts (default)
+request_max_retries = 4           # request retries (default)
+
+[mcp_servers.<name>]
+startup_timeout_sec = 30          # MCP server launch (default)
+tool_timeout_sec = 300            # per MCP tool call (default)
+```
+
+The external `timeout` wrapper is the only deadline that bounds the *whole*
+invocation regardless of which internal phase wedged.
+
+Diagnosing a suspected hang — the decisive signal is CPU time vs process age
+(mtimes/`git diff --stat` only show the *last* time codex did anything):
+
+```bash
+ps aux | grep "codex exec" | grep -v grep   # ~0:00.1 CPU on an hours-old process = hung
+ls -lt <worktree>/src | head                # last real edit
+```
+
+Kill the whole process chain (shell wrapper, node shim, vendor binary), not
+just the leaf — and identify *your* chain by start time and command shape so
+you don't kill an unrelated interactive session.
+
 ## Capturing output
 
 For programmatic capture, prefer `-o`:
@@ -136,7 +185,7 @@ Auth: `codex login` (ChatGPT plan OAuth), `codex login --with-api-key`
 Investigation (read-only, capture answer):
 
 ```bash
-codex exec -s read-only -o /tmp/answer.md \
+timeout 300 codex exec -s read-only -o /tmp/answer.md \
   "Investigate how rate limiting works in /abs/path/repo. Report the entry
    points, the algorithm, and the config knobs, with file:line references."
 ```
@@ -144,7 +193,7 @@ codex exec -s read-only -o /tmp/answer.md \
 Implementation (workspace writes, self-contained spec):
 
 ```bash
-codex exec -s workspace-write -C /abs/path/repo \
+timeout 900 codex exec -s workspace-write -C /abs/path/repo \
   "Implement X in src/foo.py per this spec: ... Acceptance: tests in
    tests/test_foo.py pass via 'uv run pytest tests/test_foo.py'."
 ```
@@ -152,12 +201,12 @@ codex exec -s workspace-write -C /abs/path/repo \
 Review a branch (or the working tree with `--uncommitted`):
 
 ```bash
-codex review --base master
+timeout 900 codex review --base master
 ```
 
 Attach a diff from stdin:
 
 ```bash
-git diff master... | codex exec -s read-only \
+git diff master... | timeout 300 codex exec -s read-only \
   "Review this diff for correctness bugs; the diff follows in <stdin>."
 ```
