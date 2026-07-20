@@ -85,6 +85,87 @@ To check and test the Codex scripts:
 make test-codex-skills
 ```
 
+## opencode Quick Start
+
+[opencode](https://opencode.ai) has no marketplace concept — it discovers skills by recursively scanning configured paths for `**/SKILL.md`, and MCP servers from explicit `mcp:` entries in its config. There is no install script to run; you just point opencode at this repo.
+
+Add an `opencode` block to your global config at `~/.config/opencode/opencode.json` (or `.jsonc`):
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // 1. Skills — recursive **/SKILL.md scan picks up every plugin under plugins/.
+  //    48 skill plugins are auto-discovered this way. The 4 MCP-only plugins
+  //    (no SKILL.md) are skipped here and wired explicitly under "mcp" below.
+  "skills": {
+    "paths": ["/absolute/path/to/claude-marketplace/plugins"]
+  },
+
+  // 2. MCP servers — opencode does not auto-discover; one entry per server.
+  //    ${CLAUDE_PLUGIN_ROOT} from each plugin's .mcp.json is NOT interpolated
+  //    by opencode, so substitute an absolute script path. "command" is a
+  //    single array of strings, not a separate program + args.
+  "mcp": {
+    "sequential-thinking": {
+      "type": "local",
+      "command": [
+        "uv", "run", "--no-config", "--script",
+        "/absolute/path/to/claude-marketplace/plugins/sequential-thinking/scripts/mcp_sequential_thinking.py"
+      ]
+    },
+    "file-search": {
+      "type": "local",
+      "command": [
+        "uv", "run", "--no-config", "--script",
+        "/absolute/path/to/claude-marketplace/plugins/file-search/scripts/mcp_fd_server.py"
+      ]
+    },
+    "fuzzy-search": {
+      "type": "local",
+      "command": [
+        "uv", "run", "--no-config", "--script",
+        "/absolute/path/to/claude-marketplace/plugins/fuzzy-search/scripts/mcp_fuzzy_search.py"
+      ]
+    },
+    "sqlite": {
+      "type": "local",
+      "command": [
+        "uv", "run", "--no-config", "--script",
+        "/absolute/path/to/claude-marketplace/plugins/sqlite/scripts/mcp_sqlite_server.py"
+      ]
+    }
+  }
+}
+```
+
+Then **quit and restart opencode** — config is loaded once at startup and is not hot-reloaded.
+
+### opencode MCP dependencies
+
+The 4 MCP servers share `uv` and otherwise split their deps:
+
+| Server | Requires | Optional |
+|---|---|---|
+| `sequential-thinking` | `uv` | `DISABLE_THOUGHT_LOGGING=true` env |
+| `file-search` | `uv`, `fd`, `fzf` | — |
+| `fuzzy-search` | `uv`, `rg`, `fzf` | `rga` (for `fuzzy_search_documents`), `pandoc` (for HTML→Markdown in `extract_pdf_pages`) |
+| `sqlite` | `uv` | `MCP_SQLITE_ALLOW_WRITES=true` env, `--db-path <path>` arg |
+
+```bash
+brew install uv fd fzf ripgrep ripgrep-all
+```
+
+`uv` fetches each server's Python deps (`mcp`, `PyMuPDF`) on first run via PEP 723 inline metadata — do not `pip install` them globally.
+
+### Notes
+
+- Skill plugins (the other 48 directories under `plugins/`) are picked up automatically by the recursive `**/SKILL.md` scan; they need no per-plugin wiring. If a skill appears missing on next session, check that its `SKILL.md` has a non-empty `description` in frontmatter — opencode filters out skills without one.
+- If you move this checkout, update the four absolute script paths under `mcp` in lockstep. The `skills.paths` entry only needs the single parent directory.
+- For a curated subset of skills instead of all 48, symlink individual plugin dirs into `~/.config/opencode/skill/<name>/` (opencode auto-loads `~/.config/opencode/skill/*/SKILL.md` and `~/.agents/skills/*/SKILL.md`).
+- Per-project opencode config (`.opencode/opencode.json` in a workspace) deep-merges over the global config, so you can override or extend `skills.paths` / `mcp` per project.
+- Full opencode config schema: <https://opencode.ai/config.json>.
+
 ## Available Skills
 
 | Skill | Description | Source |
