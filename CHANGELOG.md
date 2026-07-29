@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-07-29
+
 ### Added
 - code-walkthrough skill: create self-contained interactive HTML documents that teach a code change (branch, PR, diff, or subsystem) to a reviewer with no prior knowledge — before/after code toggles, mermaid diagrams, step-through code walkers, playground widgets mirroring the logic under study, sidebar scrollspy, and light/dark themes. Encodes a 6-phase pipeline (extract via read-only agent fan-out → independently verify claims → spiral pedagogy structure → author in fragments → browser-verify with a headless browser → deliver) and ships a generic, domain-agnostic HTML shell template (`references/template-shell.html`) with the full CSS/JS component library and documented usage patterns
 
@@ -637,7 +639,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Marketplace metadata and owner information
 - Plugin entry with `skills` field for proper skill loading
 
-[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.44.0...HEAD
+[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.45.0...HEAD
+[0.45.0]: https://github.com/dashed/claude-marketplace/compare/v0.44.0...v0.45.0
 [0.44.0]: https://github.com/dashed/claude-marketplace/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/dashed/claude-marketplace/compare/v0.42.1...v0.43.0
 [0.42.1]: https://github.com/dashed/claude-marketplace/compare/v0.42.0...v0.42.1
