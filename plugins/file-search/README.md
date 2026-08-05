@@ -53,7 +53,7 @@ after installing.)
 
 - **[uv](https://docs.astral.sh/uv/)** — the server is launched with
   `uv run --script`. The script is a PEP 723 inline-dependency script
-  (`requires-python >=3.10`, `mcp>=0.1.0`); uv resolves and caches dependencies
+  (`requires-python >=3.10`, `mcp>=1.9.4,<2`); uv resolves and caches dependencies
   on first run. No manual `pip install` needed.
 - **[`fd`](https://github.com/sharkdp/fd)** (or `fdfind` on Debian/Ubuntu) and
   **[`fzf`](https://github.com/junegunn/fzf)** must be on `PATH`. The server

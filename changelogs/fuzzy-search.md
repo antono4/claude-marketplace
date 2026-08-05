@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-08-04
+
+### Fixed
+- Constrained the `mcp` dependency to `>=1.9.4,<2` in the PEP 723 header of `scripts/mcp_fuzzy_search.py` (and in `pyproject.toml`/`README.md`) — mcp 2.0.0 removed `mcp.server.fastmcp`, which the server imports, so any fresh `uv run --script` resolution crashed at startup with `ModuleNotFoundError: No module named 'mcp.server.fastmcp'`. The `PyMuPDF>=1.23.0` dependency is unchanged
+
 ## [1.3.1] - 2026-06-25
 
 ### Changed

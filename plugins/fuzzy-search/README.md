@@ -67,7 +67,7 @@ code-navigation idiom combines this with exclusions, e.g.
 
 - **[uv](https://docs.astral.sh/uv/)** — the server is launched with
   `uv run --script`. The script is a PEP 723 inline-dependency script
-  (`requires-python >=3.10`, deps `mcp>=0.1.0`, `PyMuPDF>=1.23.0`); uv resolves
+  (`requires-python >=3.10`, deps `mcp>=1.9.4,<2`, `PyMuPDF>=1.23.0`); uv resolves
   and caches dependencies automatically on first run.
 - **[ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`)** and
   **[fzf](https://github.com/junegunn/fzf)** — required for the

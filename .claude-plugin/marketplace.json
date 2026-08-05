@@ -713,7 +713,7 @@
     },
     {
       "name": "file-search",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "source": "./plugins/file-search",
       "description": "MCP server exposing search_files and filter_files tools for fast file-NAME discovery powered by fd (regex/glob) and fzf (fuzzy matching). Use when locating files by name or partial path — not for searching file contents.",
       "author": {
@@ -735,7 +735,7 @@
     },
     {
       "name": "fuzzy-search",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "source": "./plugins/fuzzy-search",
       "description": "MCP server exposing fuzzy content/file/document search tools built on ripgrep + fzf (plus ripgrep-all and PyMuPDF for PDFs). Use when searching code, files, or documents with fuzzy filtering, or extracting/inspecting PDF pages and outlines.",
       "author": {
@@ -758,7 +758,7 @@
     },
     {
       "name": "sqlite",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "source": "./plugins/sqlite",
       "description": "MCP server exposing SQLite database tools (query, execute, list_tables, describe_table, create_table). Read-only by default; writes are opt-in via --allow-writes or MCP_SQLITE_ALLOW_WRITES=true. Use when inspecting, querying, or (when enabled) modifying SQLite databases.",
       "author": {

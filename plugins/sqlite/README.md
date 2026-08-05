@@ -70,7 +70,7 @@ To configure a default database, add `--db-path /path/to/db.sqlite` to the
 
 - **[uv](https://docs.astral.sh/uv/)** — the server is launched with
   `uv run --script`. The script is a PEP 723 inline-dependency script
-  (`requires-python >=3.10`, `mcp>=0.1.0`); uv resolves and caches the
+  (`requires-python >=3.10`, `mcp>=1.9.4,<2`); uv resolves and caches the
   dependency automatically on first run. No manual `pip install` is needed.
 - **No database engine to install** — `sqlite3` is part of the Python standard
   library, so there is no external binary prerequisite.

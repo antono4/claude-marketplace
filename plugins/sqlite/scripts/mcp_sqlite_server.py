@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["mcp>=0.1.0"]
+# dependencies = ["mcp>=1.9.4,<2"]
 #
 # [project.optional-dependencies]
 # dev = ["pytest>=7.0", "pytest-asyncio>=0.21.0"]

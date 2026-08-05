@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - Synced `.claude-plugin/plugin.json` version with the marketplace version 1.0.1 (was stuck at 1.0.0)
 
+## [1.0.2] - 2026-08-04
+
+### Fixed
+- Constrained the `mcp` dependency to `>=1.9.4,<2` in the PEP 723 header of `scripts/mcp_fd_server.py` (and in `pyproject.toml`/`README.md`) — mcp 2.0.0 removed `mcp.server.fastmcp`, which the server imports, so any fresh `uv run --script` resolution crashed at startup with `ModuleNotFoundError: No module named 'mcp.server.fastmcp'`
+
 ## [1.0.1] - 2026-06-04
 
 ### Fixed
