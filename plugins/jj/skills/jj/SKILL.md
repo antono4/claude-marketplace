@@ -20,14 +20,10 @@ Jujutsu is a powerful Git-compatible version control system that combines ideas 
 ## When to Use This Skill
 
 - User mentions "jj", "jujutsu", or "jujutsu vcs"
-- Working with stacked/dependent commits
-- Questions about change IDs vs commit IDs
-- Revset queries for selecting commits
-- Conflict resolution workflows in jj
-- Git interoperability with jj
-- Operation log, undo, or redo operations
-- History rewriting (squash, split, rebase, diffedit)
-- Bookmark management (jj's equivalent of branches)
+- Working with stacked/dependent commits, or bookmarks (jj's branches)
+- Change IDs vs commit IDs; revset queries for selecting commits
+- Conflict resolution, or history rewriting (squash, split, rebase, diffedit)
+- Git interoperability, operation log, undo/redo
 
 ## Key Concepts
 
@@ -69,7 +65,7 @@ Instead of staging, use these patterns:
 Conflicts are recorded in commits, not blocking operations:
 
 ```bash
-jj rebase -s X -d Y     # Succeeds even with conflicts
+jj rebase -s X -o Y     # Succeeds even with conflicts
 jj log                   # Shows conflicted commits with ×
 jj new <conflicted>      # Work on top of conflict
 # Edit files to resolve, then:
@@ -78,15 +74,7 @@ jj squash                # Move resolution into parent
 
 ### Operation Log
 
-Every operation is recorded and can be undone:
-
-```bash
-jj op log                # View operation history
-jj undo                  # Undo last operation
-jj redo                  # Redo undone operation
-jj op revert <op-id>     # Revert specific operation
-jj op restore <op-id>    # Restore to specific operation
-```
+Every operation is recorded and can be undone or inspected - see [Undoing Mistakes](#undoing-mistakes).
 
 ## Essential Commands
 
@@ -108,13 +96,15 @@ jj op restore <op-id>    # Restore to specific operation
 | `jj git push` | Push to remote | `git push` |
 | `jj undo` | Undo last operation | `git reflog` + reset |
 | `jj file annotate` | Show line origins | `git blame` |
-| `jj file search` | Search file contents | `git grep` |
+| `jj file search -p <pat>` | Search file contents | `git grep` |
+| `jj tag` | Manage tags (incl. track/untrack) | `git tag` |
 | `jj commit` | Finalize WC commit + start new | `git commit` |
 | `jj absorb` | Auto-squash into right commits | `git commit --fixup` + autosquash |
 | `jj evolog` | History of a single change | `git reflog` (per-commit) |
 | `jj next` / `jj prev` | Navigate commit graph | `git checkout HEAD~` |
 | `jj interdiff` | Compare diffs of two changes | - |
 | `jj fix` | Run formatters on commits | - |
+| `jj run` | Run any command across revisions | - |
 | `jj arrange` | TUI to reorder/abandon commits | `git rebase -i` (reorder) |
 | `jj bookmark advance` | Move bookmark forward | fast-forward branch |
 
@@ -145,26 +135,38 @@ jj squash -i              # Interactively select changes
 
 # Option 3: Auto-squash into correct commits in stack
 jj absorb                 # Each hunk goes to commit that last changed those lines
+jj absorb -i              # (0.44+) Pick which hunks to consider; rest stay in source
+```
+
+### Running a Command Across a Stack (`jj run`, 0.43+)
+
+Checks out each revision in its own isolated working copy, runs the command, amends the revision, and rebases descendants so the fix propagates:
+
+```bash
+jj run -r 'trunk()..@' -- cargo fix     # Rewrite each commit in the stack
+jj run -j 4 -- pre-commit run           # Parallel (start order is oldest-first)
+jj run --ignore-changes -- cargo test   # Just run it; never rewrite commits
+jj run --passthrough --ignore-errors -- make lint  # Stream output; don't stop on failure
 ```
 
 ### Rebasing Commits
 
 ```bash
-# Rebase current branch onto main
-jj rebase -d main
+# Rebase current branch onto main (-d is a still-working alias for -o/--onto)
+jj rebase -o main
 
 # Rebase specific revision and descendants
-jj rebase -s <rev> -d <destination>
+jj rebase -s <rev> -o <destination>
 
 # Rebase only specific revisions (not descendants)
-jj rebase -r <rev> -d <destination>
+jj rebase -r <rev> -o <destination>
 
 # Insert commit between others
 jj rebase -r X -A Y       # Insert X after Y
 jj rebase -r X -B Y       # Insert X before Y
 
 # Simplify redundant parents during rebase
-jj rebase -s <rev> -d <dest> --simplify-parents
+jj rebase -s <rev> -o <dest> --simplify-parents
 ```
 
 ### Reordering Commits with `jj arrange`
@@ -190,11 +192,16 @@ jj bookmark advance       # Move bookmark forward to @ (like "jj tug")
 
 ### Searching File Contents
 
+**Breaking in 0.44:** `-p`/`--pattern` is a **required flag**; positional args are **filesets**, not the pattern. Output now prints each matched line prefixed by its path (was: paths only).
+
 ```bash
-jj file search <pattern>                  # Search with regex (default)
-jj file search --pattern "glob:*.rs"      # Use glob pattern
-jj file search --pattern "substring:foo"  # Substring match
-jj file search -r <rev> <pattern>         # Search at specific revision
+jj file search -p foo                # Regex (default kind) -> "b.txt:alpha foo"
+jj file search -p foo --name-only    # Paths only (pre-0.44 behavior)
+jj file search -p foo -n             # Prefix each match with its line number
+jj file search -p 'substring:foo'    # Substring match
+jj file search -p 'glob:*foo*'       # Glob must match the WHOLE line
+jj file search -p foo 'glob:*.rs'    # Limit to a fileset
+jj file search -r <rev> -p foo       # Search at a specific revision
 ```
 
 ### Pushing Changes
@@ -206,14 +213,14 @@ jj git push --bookmark <name>
 # Push change by creating auto-named bookmark
 jj git push --change <change-id>
 
-# Push all bookmarks (skips ineligible: private/conflicted)
+# Push all bookmarks AND tags (0.44+); skips ineligible: private/conflicted
 jj git push --all
 
 # Pass push options to remote server
 jj git push --bookmark <name> --option key=value
 ```
 
-**Reorder a pushed/stacked branch:** `jj rebase --ignore-immutable -s <change> -d <dest>` (descendants auto-rebase), then `jj git push --bookmark <name>` — `jj git push` is force-with-lease-safe by default (no flag). See [references/github-workflow.md](references/github-workflow.md).
+**Reorder a pushed/stacked branch:** `jj rebase --ignore-immutable -s <change> -o <dest>` (descendants auto-rebase), then `jj git push --bookmark <name>` — `jj git push` is force-with-lease-safe by default (no flag). See [references/github-workflow.md](references/github-workflow.md).
 
 ### Resolving Conflicts
 
@@ -229,22 +236,10 @@ jj resolve                # Opens merge tool for each conflict
 jj resolve --list         # List all conflicted files
 ```
 
-### Binary & Merge Conflict Resolution
+### Binary & Merge Conflicts
 
-Binary files cannot have conflict markers - resolve by choosing a version:
+Binary files can't hold conflict markers - pick a version with `jj restore --from main path/to/binary.wasm`. Multi-parent merge conflicts use the same new/edit/squash loop above. Create a merge with:
 
-```bash
-jj restore --from main path/to/binary.wasm    # Take from specific revision
-```
-
-Multi-parent merge conflicts:
-```bash
-jj new <conflicted-merge>    # Create child of merge
-# Edit files to resolve
-jj squash                    # Move resolutions into merge
-```
-
-**Creating multi-parent merges:**
 ```bash
 jj new branch-a branch-b branch-c -m "integration: merge features"
 ```
@@ -291,7 +286,7 @@ jj --no-integrate-operation log -r 'trunk()..@'
 jj log -r '@::'           # Working copy and descendants
 jj log -r 'trunk()..@'    # Commits between trunk and working copy
 jj log -r 'mine() & ::@'  # My commits in working copy ancestry
-jj rebase -s 'roots(trunk()..@)' -d trunk()  # Rebase branch onto trunk
+jj rebase -s 'roots(trunk()..@)' -o trunk()  # Rebase branch onto trunk
 ```
 
 ## Git Interoperability
@@ -312,7 +307,19 @@ cd existing-git-repo
 jj git init --colocate    # Add jj to existing Git repo
 ```
 
-In colocated repos, Git changes are auto-imported. If git and jj disagree, use `jj git import` / `jj git export`. Best practice: primarily use jj commands.
+In colocated repos, Git changes are imported/exported automatically on every jj command. **Since 0.44, `jj git import` and `jj git export` are inert here** — not errors: they print `No import needed in colocated workspaces.`, exit 0, and change nothing (they were usually no-ops and had a race condition). So re-sync by running any jj command (e.g. `jj st`); if you genuinely suspect divergence, force one with `jj git import --ignore-working-copy`. Best practice: primarily use jj commands.
+
+### Tags Are First-Class (0.44+)
+
+`jj git fetch` now fetches tags like bookmarks — as `<name>@<remote>`, auto-tracked by a local tag of the same name. Git's `tagOpt` is no longer respected; control fetching with `remotes.<remote>.fetch-tags` in jj config (a *pattern*, e.g. `'~*'` to disable). `jj git push --all` pushes tags too.
+
+```bash
+jj tag list                     # List tags and targets
+jj tag set <name> -r <rev>      # Create/update a tag
+jj tag track <name>@<remote>    # Start/stop tracking a remote tag
+```
+
+**Gotcha:** `tags()` is part of `builtin_immutable_heads()`, so newly-tracked tags can make previously-mutable commits immutable.
 
 ### Colocated repos: Git sees `@` as uncommitted
 
@@ -420,15 +427,7 @@ Many jj commands open an editor by default. Use these flags for automation and C
 
 ### Squash Without Editor
 
-```bash
-# Use destination's message (discard source)
-jj squash --use-destination-message    # or -u
-
-# Provide explicit message
-jj squash -m "Combined commit message"
-```
-
-**Note:** If either commit has an empty description, jj automatically uses the non-empty one without opening an editor.
+`jj squash -u` (`--use-destination-message`) keeps the destination's message; `jj squash -m "..."` sets one explicitly. If either commit has an empty description, jj silently uses the non-empty one.
 
 ### Conflict Resolution Without Merge Tool
 
@@ -443,30 +442,27 @@ jj restore --from <rev> <file>      # Take file from specific revision
 
 ### Inherently Interactive Commands
 
-These commands cannot be made non-interactive:
-- `jj split` (without file arguments) - requires diff selection (workaround: pass file paths, e.g. `jj split -m "First commit" src/file1.rs`)
-- `jj diffedit` - opens diff editor by design
-- `jj resolve` (without `--tool`) - opens merge tool
-- `jj arrange` - TUI by design
+Cannot be made non-interactive: `jj diffedit`, `jj arrange` (TUI), `jj resolve` without `--tool`, and `jj split` without file arguments (workaround: pass paths, e.g. `jj split -m "First part" src/file1.rs`).
 
 ## Common Pitfalls
 
 ### Push Flag Combinations
 
-Some `jj git push` flag combinations don't work together:
+| Flag | Notes |
+|------|-------|
+| `--all` | All bookmarks **and tags**, including new ones (0.44+) |
+| `--tracked` | Tracked bookmarks and tags that changed |
+| `-b`/`--bookmark <pattern>` | Specific bookmark; auto-tracks if new |
+| `-t`/`--tag <pattern>` | Specific tag (0.44+) |
+| `-c`/`--change <id>` | Creates/pushes auto-named bookmark (auto-tracked) |
+| `--named name=<rev>` | Push a revision under a brand-new bookmark name |
+| `--allow-conflicts` | Allow pushing commits containing conflicts (0.44+) |
+| `--allow-private`, `--allow-empty-description` | Lift the corresponding eligibility check |
+| `-o`/`--option key=value` | Pass push options to server |
 
-| Flags | Works? | Notes |
-|-------|--------|-------|
-| `--all` | ✓ | Pushes all bookmarks (skips ineligible) |
-| `--tracked` | ✓ | Pushes tracked bookmarks that changed |
-| `--bookmark <name>` | ✓ | Pushes specific bookmark |
-| `--change <id>` | ✓ | Creates/pushes auto-named bookmark |
-| `--all --allow-new` | ✗ | **Incompatible** |
-| `--tracked --allow-new` | ✗ | **Incompatible** |
-| `--bookmark <name> --allow-new` | ✓ | For new bookmarks |
-| `--option key=value` | ✓ | Pass push options to server |
+**Removed in 0.42:** `--allow-new` no longer exists (`error: unexpected argument`). It is unnecessary — `--bookmark`/`--tag`/`--change`/`--named` now track new remote refs automatically, and `--all` includes new ones.
 
-**Note (0.41+):** `--all`, `--tracked`, and `-r REVSETS` no longer fail when revisions are private or have conflicts - ineligible bookmarks are silently skipped.
+**Note (0.41+):** `--all`, `--tracked`, and `-r REVSETS` don't fail when revisions are private or conflicted - ineligible refs are silently skipped.
 
 ### Working Copy Changes on Merge Commits
 
@@ -487,7 +483,8 @@ This flag is required when moving a bookmark to an ancestor of its current posit
 | Feature | Min Version |
 |---------|-------------|
 | `xyz/n` change offset syntax | 0.37+ |
-| `jj file search`, string patterns default to glob | 0.37+ |
+| `jj file search`; name patterns (bookmark/tag) default to glob | 0.37+ |
+| `jj file search -p` required (kind defaults to **regex**), prints matched lines, `-n` | 0.44+ |
 | `divergent()`, `remote_tags()`, `diff_lines()` revsets | 0.38+ |
 | `git_web_url()`, `hyperlink()` templates | 0.38+ |
 | `jj arrange`, `jj bookmark advance` | 0.39+ |
@@ -495,3 +492,8 @@ This flag is required when moving a bookmark to an ancestor of its current posit
 | Pattern aliases, fileset aliases | 0.39+ |
 | `diff_lines_added()`, `diff_lines_removed()` | 0.40+ |
 | `replace()` template, `--no-integrate-operation` | 0.41+ |
+| `jj show` accepts multiple revisions | 0.42+ |
+| `jj run`, `forks()` revset, `jj show --reversed`, `jj config gc` | 0.43+ |
+| `jj tag track/untrack`, `jj absorb -i`, `--allow-conflicts`, `merge_point()`, `builtin_log()` | 0.44+ |
+
+**Removed:** `jj git push --allow-new` (0.42); `git_head()`/`git_refs()` revsets & templates (0.43); `jj git import`/`export` in colocated workspaces (0.44).

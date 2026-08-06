@@ -18,6 +18,9 @@ Practical solutions to problems jj users frequently encounter.
 - [Interactive Rebase Equivalent](#interactive-rebase-equivalent)
 - [Empty Merge Commits](#empty-merge-commits)
 - [Customizing Default Log Revset](#customizing-default-log-revset)
+- [Running a Command Over a Stack (`jj run`)](#running-a-command-over-a-stack-jj-run)
+- [Absorbing Part of a Commit](#absorbing-part-of-a-commit)
+- [Megamerge Pattern (Parallel Integration)](#megamerge-pattern-parallel-integration)
 
 ## Private/Local-Only Changes
 
@@ -206,7 +209,7 @@ jj bookmark move <bookmark_name> --to <target>
 
 **Problem:** `jj git push --all` says "Nothing changed" even though you have new commits.
 
-`--all` pushes all **bookmarks**, not all commits. If your commit has no bookmark, nothing pushes.
+`--all` pushes all **bookmarks and tags** (tags since 0.44), not all commits. If your commit has no bookmark, nothing pushes.
 
 **Solution:**
 
@@ -256,7 +259,7 @@ jj squash -r B    # squash B into its parent
 jj split -i       # interactively split into two
 
 # For complex reordering
-jj arrange        # experimental — reorder a chain interactively
+jj arrange        # interactively arrange the commit graph
 ```
 
 ## Empty Merge Commits
@@ -282,7 +285,13 @@ log = ".."
 
 # Show local work plus recent main
 log = "ancestors(mine(), 5) | main"
+
+# Keep the default view and add to it (0.44+)
+log = "builtin_log() | ancestors(mine(), 5)"
 ```
+
+`revsets.log` now defaults to the alias `builtin_log()` (0.44+), so you can
+extend the built-in view instead of copying its full expression.
 
 To see everything once without changing config:
 
@@ -290,6 +299,80 @@ To see everything once without changing config:
 jj log -r '..'        # all visible commits
 jj log -r 'all()'     # literally everything, including hidden
 ```
+
+## Running a Command Over a Stack (`jj run`)
+
+**Problem:** You need to know which commit in a stack breaks the build, or you
+want to apply a formatter/codemod to every commit — not just the tip.
+
+`jj run` (0.43+) checks out each revision in its own isolated working copy, runs
+the command, and amends the revision with the result. It defaults to
+`revsets.run` (`reachable(@, mutable())`) and processes revisions oldest-first
+(0.44+). Each command sees `JJ_CHANGE_ID`, `JJ_COMMIT_ID`, and `JJ_WORKSPACE_ROOT`.
+
+**Read-only check — which commit is broken?**
+
+```bash
+# Nothing is rewritten; keep going past failures to check the whole stack
+jj run --ignore-changes --ignore-errors -- cargo test
+
+# Stop at the first failure instead — jj names the offending revision:
+#   Error: the command '...' failed with exit status: 1
+#   Hint: Failed revision: onmpxtps 59096f3e c1
+jj run --ignore-changes -- cargo test
+```
+
+`--ignore-changes` discards any working-copy edits the command makes, and lets
+you run over immutable commits without `--ignore-immutable`.
+
+**Rewriting check — apply a fix to every commit:**
+
+```bash
+jj run -r 'trunk()..@' -- cargo fix
+jj run -j 4 -- pre-commit run --all-files
+```
+
+By default descendants are rebased on top of the amended revisions, which
+propagates the *diff*. For a formatter or codemod that rewrites the same lines
+in several commits, that produces conflicts — use `--restore-descendants` so
+descendants keep their **content** instead:
+
+```bash
+jj run --restore-descendants -- cargo fmt
+```
+
+Other useful flags: `--passthrough` (connect the subprocess to the terminal so
+TTY-aware output works; forces one job), `--clean` (fresh checkout per commit
+instead of reusing working copies and their build artifacts), `--root` (run from
+the workspace root rather than your current subdirectory).
+
+Since 0.44 a conflicted commit in the revset no longer panics — the conflict is
+preserved in the rewritten commit.
+
+## Absorbing Part of a Commit
+
+**Problem:** Your working copy holds several unrelated fixes. `jj absorb` would
+route them all; you only want to absorb some of them right now.
+
+Before 0.44 this meant splitting the commit first. Now use interactive absorb:
+
+```bash
+jj absorb -i             # pick which hunks are eligible for absorption
+jj absorb --tool <name>  # same, with a specific diff editor (implies -i)
+```
+
+Selected hunks are distributed to the closest mutable ancestor that last touched
+those lines — possibly across several ancestors. Hunks you don't select, or that
+can't be attributed unambiguously, stay in the source commit and are reported:
+
+```
+Absorbed changes into 1 revisions:
+  wmzkrppv b2a9acba c2: touch a
+Remaining changes:
+M b.txt
+```
+
+Narrow by path instead of interactively with a fileset: `jj absorb src/`.
 
 ## Megamerge Pattern (Parallel Integration)
 
@@ -313,6 +396,7 @@ jj squash -i --into b2            # Interactively pick changes for feature B
 
 # Or let jj figure it out automatically:
 jj absorb                         # Routes each hunk to correct ancestor
+jj absorb -i                      # Same, but pick which hunks are eligible (0.44+)
 ```
 
 The `-k`/`--keep-emptied` flag preserves the integration commit even after squashing content out. This pattern works because jj records conflicts without blocking operations.

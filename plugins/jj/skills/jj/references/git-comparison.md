@@ -18,7 +18,8 @@ This reference maps common Git commands and workflows to their jj equivalents.
 | `git add -p` | `jj split -i` | Interactive commit splitting |
 | `git commit` | `jj commit` or `jj new` | Different workflow |
 | `git commit --amend` | `jj describe` + changes | Working copy is always amendable |
-| `git commit --amend -m` | `jj describe -m "msg"` | |
+| `git commit --amend -m` | `jj describe -m "msg"` | `jj describe --editor` opens the editor; `--author`/`--reset-author` were removed in 0.42 |
+| `git commit --author` | `jj metaedit --author "Name <email>"` | Metadata only, content unchanged; `--update-author` reads `JJ_USER`/`JJ_EMAIL` |
 | `git reset HEAD~` | `jj squash` | Move changes to parent |
 | `git reset --hard` | `jj restore` | |
 | `git checkout <file>` | `jj restore <file>` | |
@@ -26,23 +27,31 @@ This reference maps common Git commands and workflows to their jj equivalents.
 | `git switch` | `jj new` | |
 | `git branch` | `jj bookmark` | Alias: `jj b` |
 | `git branch -d` | `jj bookmark delete` | |
-| `git branch --set-upstream-to` | `jj bookmark track <name> --remote <remote>` | Use `--remote` flag (not `<name>@<remote>` syntax) |
-| N/A | `jj bookmark untrack <name> --remote <remote>` | Stop tracking a remote bookmark |
+| `git branch --set-upstream-to` | `jj bookmark track <name>@<remote>` | Or `jj bookmark track <name> --remote <remote>`. The `<kind>:<name>@<remote>` pattern form was removed in 0.43 |
+| N/A | `jj bookmark untrack <name>@<remote>` | Stop tracking a remote bookmark |
 | `git merge` | `jj new <A> <B>` | Creates merge commit |
 | `git rebase` | `jj rebase` | More powerful |
 | `git rebase -i` | `jj squash -i`, `jj split` | Different approach |
-| `git cherry-pick` | `jj new <rev>; jj squash` | Or `jj duplicate` |
+| `git cherry-pick` | `jj duplicate <rev> -o <dest>` | One step — no follow-up rebase needed |
 | `git revert` | `jj revert` | |
 | `git stash` | N/A | Not needed - use `jj new` |
 | `git stash pop` | N/A | Use `jj squash` |
-| `git fetch` | `jj git fetch` | |
+| `git fetch` | `jj git fetch` | Also fetches tags (0.44+); rebases descendants of rewritten revisions (0.43+) |
+| `git fetch --tags` | `jj git fetch` | Tags fetched like bookmarks (0.44+); Git's `tagOpt` is ignored |
 | `git pull` | `jj git fetch` + `jj rebase` | No single command |
-| `git push` | `jj git push` | |
+| `git push` | `jj git push` | New bookmarks are tracked automatically (`--allow-new` removed in 0.42) |
+| `git push --force-with-lease` | `jj git push` | Default behavior — the remote moves only if it matches what jj last fetched |
+| `git push --tags` | `jj git push --tag <name>` | `--all` pushes all bookmarks *and* tags (0.44+) |
 | `git blame` | `jj file annotate` | |
-| `git grep` | `jj file search` | `--pattern` accepts `kind:pattern` syntax (defaults to `regex:`) |
+| `git grep` | `jj file search -p <pattern>` | `-p`/`--pattern` is a required flag (0.44+); positional args are filesets |
+| `git grep -l` | `jj file search --name-only -p <pattern>` | Files only — the pre-0.44 default output |
+| `git grep -n` | `jj file search -n -p <pattern>` | `-n`/`--line-number` (0.44+) |
 | `git reflog` | `jj op log` | More powerful |
-| `git tag` | `jj tag` | |
+| `git tag` | `jj tag list` / `jj tag set` | Tags are tracked, fetched, and pushed like bookmarks (0.44+) — see below |
+| `git rebase --exec <cmd>` | `jj run -- <cmd>` | Runs across a whole revset, each revision in its own working copy (0.43+) |
+| `git filter-branch --tree-filter` | `jj run --restore-descendants -- <cmd>` | Rewrite content across many commits |
 | `git push -o <opt>` | `jj git push --option <opt>` | Or `-o <opt>` shorthand |
+| N/A | `jj git push --allow-conflicts` | Push commits that contain conflicts (0.44+) — see "Conflicts as First-Class Citizens" |
 | N/A | `jj arrange` | Reorder commits; closest git equivalent is interactive rebase reordering |
 | N/A | `jj bookmark advance` | Automatically fast-forward a bookmark to a descendant |
 | N/A | `jj util snapshot` | Snapshot working copy into the commit (jj-specific concept) |
@@ -182,9 +191,9 @@ git rebase main
 
 **jj:**
 ```bash
-jj rebase -b feature -d main
+jj rebase -b feature -o main
 # Or if on feature:
-jj rebase -d main
+jj rebase -o main
 ```
 
 ### Interactive Rebase
@@ -213,12 +222,12 @@ git cherry-pick <commit>
 
 **jj:**
 ```bash
-jj new <commit>        # Create child of commit
-jj rebase -r @ -d main # Move to destination
-# Or simpler:
-jj duplicate <commit>
-jj rebase -r <duplicated> -d main
+jj duplicate <commit> -o main   # Copy the commit onto main, one step
+jj duplicate <commit> -A @      # Or place it after the working copy
 ```
+
+`-A`/`--insert-after` and `-B`/`--insert-before` place the copy relative to an
+existing revision instead of onto a destination.
 
 ### Resolving Conflicts
 
@@ -299,6 +308,18 @@ Use change IDs (`kntqzsqt`) when referring to commits.
 - **Git**: Conflicts block operations, must resolve immediately
 - **jj**: Conflicts are recorded in commits, resolve when convenient
 
+A conflicted commit has no native Git representation. When one is exported (or
+pushed with `--allow-conflicts`), the Git commit gets root directories named
+`.jjconflict-base-*/` and `.jjconflict-side-*/`, and the real path holds the
+**first side** of the conflict — not conflict markers. Those directories exist
+only to keep the relevant trees from being garbage-collected; the authoritative
+state lives in a non-standard `jj:trees` commit header.
+
+You won't see any of this while using jj. But if Git tooling checks such a
+commit out (e.g. `git switch`), those directories appear in the working copy,
+and a subsequent `jj status` will snapshot them as if you had added them —
+`jj abandon` gets you back to the unresolved-conflict state.
+
 ### Operations are Atomic
 
 Every jj operation is recorded and reversible:
@@ -336,8 +357,12 @@ git pull --rebase
 **jj:**
 ```bash
 jj git fetch
-jj rebase -d <remote>@origin  # or main@origin
+jj rebase -o main@origin  # <bookmark>@<remote>
 ```
+
+Since 0.43, `jj git fetch` also rebases the descendants of revisions the remote
+rewrote (matched by change ID), so recovering from someone else's force-push is
+usually just a fetch. Immutable descendants are not rebased.
 
 ### "Push New Branch"
 
@@ -352,6 +377,63 @@ jj git push --bookmark feature
 # Or create bookmark from change:
 jj git push --change <change-id>
 ```
+
+A bookmark that isn't tracking anything yet is tracked automatically, so there
+is no upstream to set separately. The `--allow-new` flag that used to gate this
+was removed in 0.42 and is now an unknown-argument error.
+
+### "Push a Tag"
+
+**Git:**
+```bash
+git tag v1.0
+git push origin v1.0
+git push --tags
+```
+
+**jj:**
+```bash
+jj tag set v1.0 -r @
+jj git push --tag v1.0
+jj git push --all          # all bookmarks AND tags (0.44+)
+```
+
+As of 0.44 tags behave like bookmarks: `jj git fetch` fetches them as
+`<name>@<remote>`, fetched tags are tracked by local tags of the same name, and
+tracked tags are pushed by default. `jj tag track` / `jj tag untrack` control
+tracking, and `<name>@<remote>` resolves as a revision:
+
+```bash
+jj tag list --all-remotes     # see local + remote tags and tracking state
+jj tag untrack 'v1.0@origin'
+jj log -r 'v1.0@origin'
+```
+
+Git's `tagOpt` is no longer respected; disable tag fetching in jj config with
+`remotes.<remote>.fetch-tags = '~*'`. Note that `tags()` is part of
+`builtin_immutable_heads()`, so newly tracked tags can make more history
+immutable.
+
+### "Run a Command Over Every Commit"
+
+**Git:**
+```bash
+git rebase --exec 'cargo check' main   # stops at the first failure
+```
+
+**jj:**
+```bash
+jj run -- cargo check                       # rewrites commits with the result
+jj run --ignore-changes -- cargo check      # read-only; nothing is rewritten
+jj run --ignore-changes --ignore-errors -- cargo test   # check the whole stack
+```
+
+`jj run` (0.43+) checks out each revision in its own isolated working copy,
+runs the command, and amends the revision with the result — see
+[faq-patterns.md](faq-patterns.md#running-a-command-over-a-stack-jj-run).
+Unlike `git rebase --exec` it doesn't leave you in a detached, half-finished
+rebase when a command fails, and unlike `git filter-branch` it operates on a
+revset and propagates conflicts instead of aborting.
 
 ### "Squash Last N Commits"
 
@@ -376,13 +458,30 @@ jj squash --from 'trunk()..@'
 ```bash
 git grep "pattern"
 git grep -n "pattern" -- "*.py"
+git grep -l "pattern"
 ```
 
 **jj:**
 ```bash
-jj file search --pattern "pattern"
-jj file search --pattern "regex:pattern"   # Explicit regex (default)
-jj file search --pattern "glob:*.py"       # Glob syntax
+jj file search -p "pattern"                   # path:line for every match
+jj file search -n -p "pattern" 'glob:**/*.py' # + line numbers, limited to a fileset
+jj file search --name-only -p "pattern"       # file paths only
+```
+
+Two 0.44 changes make this a much closer analog of `git grep`:
+
+- Output is now every matched line prefixed by its file path (previously: only
+  file paths). `--name-only` restores the old behavior.
+- `-p`/`--pattern` is a **required flag**. Positional arguments are
+  [filesets](filesets.md) that narrow *which files* are searched — they are not
+  the pattern. `jj file search "foo"` is an error on 0.44.
+
+The pattern takes `kind:pattern` syntax and defaults to `regex:`. A `glob:`
+pattern must match the **whole line**, so wrap it in wildcards:
+
+```bash
+jj file search -p 'glob:*foo*'   # not 'glob:foo'
+jj file search -r <rev> -p foo   # search a revision other than @
 ```
 
 ### "Push with Options"

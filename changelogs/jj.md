@@ -6,6 +6,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-06
+
+Updates the skill from a jj 0.41.0 baseline to **jj 0.44.0** (covering the 0.42, 0.43, and 0.44 releases). Every claim was verified against the live 0.44.0 binary — `--help`, `jj config list --include-defaults`, the v0.44.0 config schema, and scratch repos with real bare-git remotes. Documentation pinned at the `v0.44.0` tag was used in preference to the upstream working tree, which is already past the release.
+
+This is primarily a **correctness repair**. The skill had drifted into recommending flags and config keys that no longer exist, and a mechanical audit (extracting every documented `jj <subcommand> --flag` pair and diffing it against the binary — 510 pairs) also surfaced a number of errors that predate the 0.42–0.44 window.
+
+### Fixed
+
+Removed in 0.42–0.44 but still documented as current:
+
+- `jj git push --allow-new` (removed 0.42) in SKILL.md, `commands.md`, and `github-workflow.md`, including a three-row "incompatible combinations" table. `--bookmark`/`--tag`/`--change`/`--named` now auto-track new remote refs, so the flag is simply unnecessary.
+- `git.auto-local-bookmark` (removed 0.42) → per-remote `remotes.<name>.auto-track-bookmarks` (default `~*`; `"*"` is the exact equivalent of the old `= true`).
+- `git.push-new-bookmarks` (removed 0.42), including a comment that wrongly described another key as its replacement.
+- `git_head()` / `git_refs()` (removed 0.43 from both revsets and templates), Git-like symbols such as `refs/heads/main` (no longer resolve), `ui.revsets-use-glob-by-default` (removed 0.43), and the `<kind>:<bookmark>@<remote>` form of `jj bookmark track`/`untrack` (removed 0.43). Retained as a migration table with replacements rather than deleted outright.
+- `jj file search`: `-p`/`--pattern` is now a **required flag** and positional arguments are filesets — the documented `jj file search <pattern>` form was invalid. Default output is now `path:line` per match; `--name-only` restores the pre-0.44 paths-only behavior; `-n`/`--line-number` is new.
+- `jj git import` / `jj git export` were recommended as the colocated-repo fix-up; as of 0.44 both are no-ops there (`No import needed in colocated workspaces.`, exit 0). Documented the `--ignore-working-copy` force path and that ordinary jj commands re-sync automatically.
+- `fetch-tags`: the `all|included|none` enum no longer exists. `git.fetch-tags` is gone entirely; only `remotes.<name>.fetch-tags` remains, as a string pattern (`'~*'` disables, `'v*'` selects). `jj git clone --fetch-tags=…` → `-t/--tag=PATTERN`.
+- `jj commit`/`jj describe` `--author`/`--reset-author`, `jj describe --edit`/`--no-edit` (→ `--editor`), and `jj metaedit --update-committer-timestamp` (→ `--force-rewrite`), all removed in 0.42.
+
+Errors predating the 0.42–0.44 window, found by mechanical audit:
+
+- `jj show -p` does not exist (patch is on by default; `--no-patch` disables).
+- `jj bisect run -s <good> -e <bad>` — neither flag exists; the real interface is `--range`/`-r` (repeatable) plus `--find-good`. The documented invocation could never have worked. Added the exit-code contract and `$JJ_BISECT_TARGET`.
+- `jj revert -s <rev>` — no such flag; `-r` **and** a destination are both required.
+- `jj bookmark advance -r` → `-t`/`--to`.
+- `references/conflicts.md`: the auto-rebase opt-out recipe used `jj rebase --branch C --destination K`, but `-b C` expands to `-s roots(K..C)` = **B**, dragging B onto the duplicate and defeating the recipe. Corrected to `--source`.
+- `references/revsets.md`: `:x` and `x:` were documented as "exclusive ancestors/descendants" operators but have never existed on 0.44 (`` `:` is not a prefix/postfix operator ``); `x..` was described as "descendants of x minus x" when it is `~::x` and includes sibling branches; and an entire section taught the `all:` modifier, removed in **0.38**, which is now a hard parse error.
+- `references/templates.md`: `trailers().filter(…)` was a hard parse error (`trailers` is a keyword, not a function); `List.join()` was documented unconditionally but does not exist for non-printable element types such as `List<Commit>`.
+- `references/configuration.md`: the `[[--when]]` + `environments` conditional-config syntax was a hard parse error (correct form is `[[--scope]]` + `--when.<key>`); `signing.sign-all` does not exist (→ `signing.behavior` = `drop`/`keep`/`own`/`force`); `signing.key` is top-level, not under `signing.backends.ssh`; `fix.tools.<name>.line-range-arg` used non-existent `$start`/`$end` placeholders instead of `$first`/`$last`; `git.shallow-clone-depth` and `snapshot.use-watchman` do not exist; and wrong defaults were recorded for `working-copy.exec-bit-change`, `revsets.bookmark-advance-from`/`-to`, and `revsets.op-diff-changes-in`.
+- `references/filesets.md`: `glob:` is non-recursive (`glob:"*.rs"` at the root matches nothing; use `glob:"**/*.rs"`).
+- `references/git-comparison.md`: the `jj bookmark track` note claimed `--remote` had to be used "not `<name>@<remote>` syntax" — the `BOOKMARK@REMOTE` symbol form is still supported; 0.43 removed only the `<kind>:<bookmark>@<remote>` *pattern* form. The "Pull and Rebase" section contained the nonsense placeholder `jj rebase -d <remote>@origin`, and "Cherry-picking" taught a two-step `jj duplicate` + `jj rebase -r` workaround that `jj duplicate <rev> -o main` does in one step.
+- `references/faq-patterns.md`: "Push Says Nothing Changed" said `--all` pushes all bookmarks — on 0.44 it pushes bookmarks **and tags**; and `jj arrange` was described as experimental, which its help text no longer claims.
+
+### Added
+
+- **`jj run` (0.43)** — the headline feature of that release, previously absent from the skill entirely. Full reference section in `commands.md`, a "Running a Command Over a Stack" recipe in `faq-patterns.md`, and a SKILL.md entry. Covers `-r`, `-j`, `--root`, `--clean`, `--restore-descendants`, the 0.44 flags `--passthrough`/`--ignore-changes`/`--ignore-errors`, the `JJ_CHANGE_ID`/`JJ_COMMIT_ID`/`JJ_WORKSPACE_ROOT` environment variables, and oldest→newest ordering.
+- **Tags as first-class refs (0.44)** across SKILL.md, `commands.md`, `configuration.md`, and `github-workflow.md`: `jj git fetch` fetches tags as `<name>@<remote>` and auto-tracks them, `jj tag track`/`untrack`, `jj git push --tag`, and the footgun that `jj git push --all` now pushes all tags. Includes the immutability consequence — `tags()` is part of `builtin_immutable_heads()`, so fetching a tag can make commits you were editing immutable.
+- `jj absorb -i`/`--interactive`/`--tool` (0.44), which obsoletes the previously-documented "split first, then absorb" workaround; `jj git push --allow-conflicts` (0.44) with an accurate description of how conflicts appear to Git tooling — `.jjconflict-base-*/` and `.jjconflict-side-*/` root directories with the first side's content at the real path, not conflict markers; `jj util backend name` (0.42), `jj config gc` (0.43), `jj show --reversed` (0.43) and multi-revision `jj show` (0.42).
+- Revsets: `merge_point()` (0.44, arity 1), `forks()` (0.43), and `builtin_log()` (0.44) with its real expansion and a "Extending the Default Log" section.
+- Templates: `try()` (0.44), the `FsPath` / `Option<FsPath>` return-type changes to `WorkspaceRef.root()` and `RepoPath.absolute()`, `max_bar_width` on `TreeDiff.stat()`, and eight previously-undocumented types.
+- Config: `/etc/jj` and `conf.d/` in the precedence list (0.43), `diff.stat.max-bar-width` (0.44), `merge-tools.<name>.edit-invocation-mode` (0.42), the alias `.doc` table form (0.42), `crossed-out` colors (0.43), `revsets.log = "builtin_log()"`, and a warning that jj **silently ignores unknown config keys** — the mechanism by which all of the above rotted invisibly.
+- `github-workflow.md`: a "When Upstream Force-Pushed" recipe built on 0.43's change-ID-based descendant rebasing, verified end-to-end.
+- The 0.44 rule that repeated CLI arguments are no longer an error (last occurrence wins).
+
+### Changed
+
+- `jj rebase` examples now use `-o`/`--onto` and `jj restore` uses `-t`/`--into` throughout, matching upstream's own documentation (jj's v0.44.0 docs use `-o` exclusively and `-d` nowhere). `-d`/`--destination` and `--to` remain accepted aliases and are noted once, at each command's definition in `commands.md`.
+
 ## [1.7.0] - 2026-06-05
 
 Closes the "already-pushed / colocated-repo" gap that greenfield examples never exercised. Every claim was re-verified against live `jj` 0.41.0 before shipping (including correcting two inaccuracies in the source improvement proposal itself).

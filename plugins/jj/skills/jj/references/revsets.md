@@ -12,7 +12,7 @@ Revsets are a functional language for selecting commits in jj. This reference co
 - [Date Patterns](#date-patterns)
 - [Revset Aliases](#revset-aliases)
 - [Common Patterns](#common-patterns)
-- [Deprecations](#deprecations-037038)
+- [Deprecations and Removals](#deprecations-and-removals)
 
 ## Basic Symbols
 
@@ -24,8 +24,8 @@ Revsets are a functional language for selecting commits in jj. This reference co
 | `<change_id>` | Commit by change ID (e.g., `kntqzsqt`) |
 | `<commit_id>` | Commit by commit hash (prefix ok) |
 | `<bookmark>` | Commit at bookmark (e.g., `main`) |
-| `<bookmark>@<remote>` | Remote bookmark (e.g., `main@origin`) |
 | `<tag>` | Commit at tag |
+| `<name>@<remote>` | Remote-tracking bookmark **or tag** (e.g., `main@origin`, `v1.0@origin`) |
 
 ## Symbol Resolution Priority
 
@@ -33,10 +33,11 @@ jj resolves a symbol in this order:
 
 1. Tag name
 2. Bookmark name
-3. Git ref
-4. Commit ID or change ID
+3. Commit ID or change ID
 
 To override, use `commit_id(abc)` or `change_id(abc)` explicitly — useful in scripts where a bookmark might shadow a commit ID.
+
+**Removed in 0.43:** the Git-ref lookup step. Git-like symbols (`refs/heads/main`, `refs/tags/v1.0`) no longer resolve to revisions and now error with "Revision ... doesn't exist". Use the plain `<name>` or `<name>@<remote>` form instead.
 
 ## Operators
 
@@ -56,16 +57,21 @@ To override, use `commit_id(abc)` or `change_id(abc)` explicitly — useful in s
 | `::x` | Ancestors of x (inclusive) | `::@` |
 | `x::` | Descendants of x (inclusive) | `main::` |
 | `x::y` | DAG path from x to y | `main::@` |
-| `:x` | Ancestors of x (exclusive) | `:@` (excludes @) |
-| `x:` | Descendants of x (exclusive) | `main:` (excludes main) |
+| `::` | All visible commits — same as `all()` | `jj log -r ::` |
 
 ### Range
 
 | Operator | Description | Example |
 |----------|-------------|---------|
 | `x..y` | Ancestors of y minus ancestors of x | `main..@` |
-| `x..` | Descendants of x minus x | `main..` |
-| `..y` | Ancestors of y minus root | `..@` |
+| `x..` | Commits that are **not ancestors** of x (`~::x`) | `main..` |
+| `..y` | Ancestors of y, excluding the root commit | `..@` |
+| `..` | All visible commits except root — same as `~root()` | `jj log -r ..` |
+
+`x..` is *not* "descendants of x" — it includes sibling branches. Given `A` with
+children `B` and `C`, both merged into `D`, `B..` is `{C, D}` (C is not a
+descendant of B). Note also that `..` does not distribute over union on its left:
+`(A | B)..` equals `A.. & B..`, not `A.. | B..`.
 
 ### Set Operations
 
@@ -93,9 +99,11 @@ Use parentheses for grouping: `(x | y) & z`
 | `roots(x)` | Commits in x with no ancestors in x |
 | `latest(x, [count])` | Latest `count` commits from x by committer timestamp (default: 1) |
 | `fork_point(x)` | Common ancestor(s) of all commits in x. Equivalent to `heads(::x_1 & ::x_2 & ... & ::x_N)`. Single commit resolves to itself |
+| `merge_point(x)` | Takes **one** revset. Common descendant(s) of all commits in x that have no ancestors which are also common descendants of all commits in x. Equivalent to `roots(x_1:: & x_2:: & ... & x_N::)`. Single commit resolves to itself (0.44+) |
 | `bisect(x)` | Finds commits where roughly half of x are descendants — useful for bisection workflows |
 | `exactly(x, count)` | Returns x, errors if set size is not exactly `count`. Use `exactly(x, 1)` to assert single commit |
-| `merges()` | Merge commits (multiple parents) |
+| `merges()` | Merge commits (more than 1 parent) |
+| `forks()` | Fork commits — more than 1 child (0.43+) |
 
 ### Bookmarks and Tags
 
@@ -153,6 +161,8 @@ Use parentheses for grouping: `(x | y) & z`
 | `immutable()` | Protected commits (`::(immutable_heads() \| root())`) |
 | `immutable_heads()` | Heads of immutable set (default: `trunk() \| tags() \| untracked_remote_bookmarks()`) |
 
+**Tags now grow the immutable set (0.44+).** `jj git fetch` fetches tags as `<name>@<remote>` and tracks them with a local tag of the same name automatically, so a fetch that brings in a new tag adds it to `tags()` and therefore to `immutable_heads()`. If a newly-fetched tag makes commits you were editing immutable, delete the local tag with `jj tag delete <name>` (`jj tag untrack <name>@<remote>` only stops tracking — it leaves the local tag, and `tags()`, unchanged), or override `immutable_heads()` to drop `tags()`.
+
 ### Ancestry and Navigation
 
 | Function | Description |
@@ -183,10 +193,13 @@ Since 0.37, the default pattern type is `glob` (previously `substring`). Use exp
 
 | Pattern | Description | Example |
 |---------|-------------|---------|
-| `glob:"pattern"` | Glob pattern (default since 0.37) | `bookmarks("feature-*")` |
+| `glob:"pattern"` | Glob pattern, must match the **whole** string (default since 0.37) | `bookmarks("feature-*")` |
 | `substring:"text"` | Contains text | `description(substring:"fix")` |
 | `exact:"text"` | Exact match | `description(exact:"")` |
-| `regex:"pattern"` | Regular expression | `author(regex:"^J.*")` |
+| `regex:"pattern"` | Regular expression, **unanchored** (matches substrings) | `author(regex:"^J.*")` |
+
+Note the asymmetry: `description(glob:"world")` does *not* match "hello world"
+(use `glob:"*world*"`), but `description(regex:"world")` does.
 
 ### Case-Insensitive Matching
 
@@ -281,12 +294,25 @@ Custom `<name>:<value>` patterns can be defined as aliases:
 | `immutable()` | `::(immutable_heads() \| root())` |
 | `mutable()` | `~immutable()` |
 | `builtin_immutable_heads()` | Same as default `immutable_heads()` — override `immutable_heads()` instead of this |
+| `builtin_log()` | `present(@) \| ancestors(immutable_heads().., 2) \| trunk()` — the default value of `revsets.log` (0.44+) |
+| `visible()` | `::visible_heads()` — equals `all()` unless the revset mentions hidden commits |
+| `hidden()` | `~visible()` |
 
 Override `trunk()` for custom setups:
 
 ```toml
 [revset-aliases]
 'trunk()' = 'your-bookmark@your-remote'
+```
+
+### Extending the Default Log (0.44+)
+
+`revsets.log` now defaults to `builtin_log()`, so a custom log revset can extend
+the built-in default instead of copying its full expression:
+
+```toml
+[revsets]
+log = "builtin_log() | mybranch"
 ```
 
 ### Useful Custom Aliases
@@ -381,10 +407,10 @@ jj log -r 'conflicts() & trunk()..@'
 
 ```bash
 # Rebase entire branch onto trunk
-jj rebase -s 'roots(trunk()..@)' -d trunk()
+jj rebase -s 'roots(trunk()..@)' -o trunk()
 
 # Rebase all mutable descendants
-jj rebase -s 'roots(mutable())' -d <dest>
+jj rebase -s 'roots(mutable())' -o <dest>
 
 # Find commits to squash (empty changes)
 jj log -r 'empty() & trunk()..@'
@@ -438,15 +464,20 @@ jj log -r 'latest(files("src/**"), 5)'
 jj log -r 'v1.0::v2.0'
 ```
 
-## Deprecations (0.37–0.38)
+## Deprecations and Removals
 
-| Deprecated | Replacement |
-|------------|-------------|
-| `diff_contains(pattern)` | `diff_lines(pattern)` (0.38) |
-| `git_head()` | `first_parent(@)` in colocated repos (0.37) |
-| `git_refs()` | `remote_bookmarks(remote=glob:*) \| tags()` (0.37) |
-| `all:` global config (`ui.always-allow-large-revsets`) | Removed in 0.38 — multi-revset now default for most commands |
-| `file(pattern)` | `files(expression)` — now takes fileset expressions |
+Kept as a migration table — you will still meet these in older configs and blog posts.
+
+| Old form | Status | Replacement |
+|----------|--------|-------------|
+| `git_head()` | **Removed in 0.43** (deprecated 0.37) | `first_parent(@)` in colocated repos |
+| `git_refs()` | **Removed in 0.43** (deprecated 0.37) | `remote_bookmarks(remote=glob:*) \| tags()` |
+| Git-like symbols (`refs/heads/main`, `refs/tags/v1.0`) | **Removed in 0.43** | `<name>` or `<name>@<remote>` |
+| `ui.revsets-use-glob-by-default` config | **Removed in 0.43** (now a silently-ignored key) | Glob is the default pattern kind since 0.37; use an explicit `substring:` prefix for the old behavior |
+| `<kind>:<bookmark>@<remote>` in `jj bookmark track`/`untrack` | **Removed in 0.43** | Plain `<bookmark>@<remote>` symbol (still supported) |
+| `diff_contains(pattern)` | Renamed in 0.38 | `diff_lines(pattern)` |
+| The `all:` revset modifier and `ui.always-allow-large-revsets` setting | Removed in 0.38 — `all:x` is now a **parse error** | Multi-commit revsets are accepted directly by most commands |
+| `file(pattern)` | Renamed | `files(expression)` — now takes fileset expressions |
 
 ## Advanced Recipes
 
@@ -456,7 +487,7 @@ When you have multiple feature branches and want to rebase all onto new upstream
 
 ```bash
 # Find roots of all branches leading to integration commit, excluding main:
-jj rebase -s 'roots(::my-integration ~ ::main)' -d main
+jj rebase -s 'roots(::my-integration ~ ::main)' -o main
 ```
 
 This pattern works by:
@@ -472,7 +503,7 @@ jj automatically rebases all descendants when you rebase the roots.
 jj log -r 'main | feature-a | feature-b | integration'
 
 # Rebase all feature branch roots onto updated main
-jj rebase -s 'roots(::integration ~ ::main)' -d main
+jj rebase -s 'roots(::integration ~ ::main)' -o main
 
 # Handle any conflicts that arise
 jj log -r 'conflicts()'
@@ -492,6 +523,12 @@ jj log -r 'heads(::feature & ::main)'
 
 # Fork point of multiple branches:
 jj log -r 'fork_point(feature-a | feature-b)'
+
+# Merge point of multiple branches — one revset arg, like fork_point() (0.44+):
+jj log -r 'merge_point(feature-a | feature-b)'
+
+# Every point in your stack where history branched (0.43+):
+jj log -r 'forks() & mutable()'
 ```
 
 ### Working with Multiple Feature Branches
@@ -530,35 +567,43 @@ jj log -r 'merges() & trunk()..@'
 jj log -r 'trunk()..@ & description(glob:"*merge*")'
 ```
 
-### The `all:` Prefix for Multi-Commit Arguments
+### Multi-Commit Arguments (no more `all:`)
 
-Some command flags (like `-b` in rebase) expect a single commit. If your revset resolves to multiple commits, prefix with `all:`:
+The `all:` revset modifier was **removed in 0.38** — `all:wip` is now a parse
+error (`` `:` is not an infix operator ``). Most commands that take revsets
+(`jj rebase`, `jj new`, `jj abandon`, `jj duplicate`, `jj describe`, ...) accept
+multi-commit revsets directly — their usage line reads `[REVSETS]...`:
 
 ```bash
-# ERROR: "resolved to more than one revision"
-jj rebase -b wip -d main
-
-# WORKS: prefix with all:
-jj rebase -b all:wip -d main       # Rebase ALL matching branches onto main
+# Rebase every WIP-tagged branch at once — no prefix needed
+jj rebase -b wip -o main
 ```
 
-Useful WIP revset alias to combine with this:
+Useful WIP revset alias:
 
 ```toml
 [revset-aliases]
 'wip' = 'description(regex:"^\\[(wip|WIP|todo|TODO)\\]|(wip|WIP|todo|TODO):?")'
 ```
 
-Then: `jj rebase -b all:wip -d main` rebases every WIP-tagged branch at once.
+Commands that genuinely operate on one commit (`jj edit`, `jj split -r`) still
+reject multi-commit revsets — their usage line reads `<REVSET>`:
+
+```
+Error: Revset `B|C` resolved to more than one revision
+```
+
+Narrow the revset instead — e.g. `heads(wip)`, `latest(wip)`, or
+`exactly(wip, 1)` to assert there is only one.
 
 ### Complex Rebase Scenarios
 
 ```bash
 # Rebase preserving branch structure (roots only):
-jj rebase -s 'roots(::feature-integration ~ ::main)' -d main
+jj rebase -s 'roots(::feature-integration ~ ::main)' -o main
 
 # Rebase single commit without descendants:
-jj rebase -r <rev> -d main
+jj rebase -r <rev> -o main
 
 # Insert commit between two others:
 jj rebase -r <commit> -A <after-this>

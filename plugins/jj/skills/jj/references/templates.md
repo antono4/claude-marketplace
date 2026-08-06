@@ -50,6 +50,7 @@ Same-precedence infix operators are left-to-right. Use parentheses to override.
 | `stringify(content)` | Convert to string (strips color labels) |
 | `json(value)` | Serialize value as JSON |
 | `if(condition, then, [else])` | Conditional evaluation |
+| `try(expr, fallback...)` | First expression that evaluates without a runtime error (0.44+) |
 | `coalesce(content...)` | First non-empty content |
 | `concat(content...)` | Same as `c1 ++ ... ++ cn` |
 | `join(separator, content...)` | Join with separator |
@@ -57,6 +58,18 @@ Same-precedence infix operators are left-to-right. Use parentheses to override.
 | `surround(prefix, suffix, content)` | Wrap non-empty content with prefix/suffix |
 | `config(name)` | Look up config value (returns `Option<ConfigValue>`) |
 | `git_web_url([remote])` | Convert git remote URL to HTTPS web URL (0.38+) |
+
+`try()` vs `coalesce()`: `coalesce()` picks the first **non-empty** result, `try()` picks
+the first result that does not raise a **runtime error**. `try()` suppresses runtime errors
+only (empty list, unset `Option`, bad index); parse and type errors still propagate.
+
+```bash
+# Prefer the first bookmark, fall back to a short change ID
+jj log -T 'try(bookmarks.first().name(), change_id.shortest(8)) ++ "\n"'
+```
+
+Without `try()`, `bookmarks.first()` renders `<Error: List is empty>` inline for
+unbookmarked commits.
 
 ## Key Types
 
@@ -141,6 +154,10 @@ Converts to Boolean (empty = false).
 
 `List<Trailer>` also has `.contains_key(key) -> Boolean`.
 
+`.join()` only exists when the element type is printable. `List<Commit>` and
+`List<TreeEntry>` cannot be printed, so `parents.join(",")` is a **parse error** —
+`.map()` to a printable value first: `parents.map(|c| c.commit_id().short()).join(",")`.
+
 ### Operation
 
 Used in `jj op log` templates. Cannot be printed directly.
@@ -215,17 +232,33 @@ Represents bookmarks and tags.
 
 **CryptographicSignature**: `.status() -> String` (`"good"`, `"bad"`, `"unknown"`, `"invalid"`), `.key() -> String`, `.display() -> String`. Note: calling these methods is slow (triggers signature verification).
 
-**Option**: Converts to Boolean (set = true). Methods of contained type can be called directly; errors if unset.
+**Option**: Converts to Boolean (set = true). Methods of contained type can be called directly; errors if unset — guard with `if(opt, ...)` or `try()`. In comparisons an unset value is not an error, and sorts below any set value.
 
 **ConfigValue**: `.as_boolean()`, `.as_integer()`, `.as_string()`, `.as_string_list()`
 
 **SizeHint**: `.lower() -> Integer`, `.upper() -> Option<Integer>`, `.exact() -> Option<Integer>`, `.zero() -> Boolean`
 
-**TreeDiff**: `.files() -> List<TreeDiffEntry>`, `.color_words([context])`, `.git([context])`, `.stat([width]) -> DiffStats`, `.summary()`
+**TreeDiff**: `.files() -> List<TreeDiffEntry>`, `.color_words([context])`, `.git([context])`, `.stat([width], [max_bar_width]) -> DiffStats`, `.summary()`. `width` is the total diff-stat width; `max_bar_width` caps the `++--` bar and may be passed positionally or as `max_bar_width=N` (0.44+).
 
-**TreeDiffEntry**: `.path()`, `.display_diff_path()`, `.status()`, `.status_char()`, `.source()`, `.target()`
+**TreeDiffEntry**: `.path() -> RepoPath`, `.display_diff_path()`, `.status()`, `.status_char()`, `.source() -> TreeEntry`, `.target() -> TreeEntry`
+
+**TreeEntry**: `.path() -> RepoPath`, `.conflict() -> Boolean`, `.conflict_side_count() -> Integer`, `.file_type() -> String` (`"file"`, `"symlink"`, `"tree"`, `"git-submodule"`, `"conflict"`), `.executable() -> Boolean`
 
 **DiffStats**: `.files() -> List<DiffStatEntry>`, `.total_added()`, `.total_removed()`
+
+**DiffStatEntry**: `.path() -> RepoPath`, `.display_diff_path()`, `.lines_added()`, `.lines_removed()`, `.bytes_delta()`, `.status()`, `.status_char()`
+
+**RepoPath**: slash-separated path relative to the repo root. `.absolute() -> FsPath` (was `String` before 0.44), `.display() -> String` (platform separators, relative to cwd), `.parent() -> Option<RepoPath>`
+
+**FsPath** (0.44+): a filesystem path, which may contain non-UTF-8 bytes. `.absolute() -> FsPath`, `.relative() -> FsPath` (relative to cwd). Renders as the path itself.
+
+**WorkspaceRef**: `.name() -> RefSymbol`, `.target() -> Commit` (working-copy commit), `.root() -> Option<FsPath>` — the workspace root, **optional since 0.44** (was `Template`). Unset for workspaces created before jj 0.38.0, or when the recorded path is stale.
+
+**RegexCaptures**: passed to the `replace()` lambda. `.len() -> Integer` (includes group 0), `.get(index) -> ByteString`, `.name(name) -> ByteString`. Capture groups require an explicit `regex:` pattern — the default pattern kind is literal substring.
+
+**OperationId**: `.short([len]) -> String`
+
+**RefSymbol**: a String formatted as a revset symbol (quoted/escaped as needed); does not convert to Boolean.
 
 **Trailer**: `.key() -> String`, `.value() -> String`
 
@@ -274,11 +307,31 @@ jj log -T 'separate(" ", change_id.short(), bookmarks.join(", "), description.fi
 # Author date in custom format
 jj log -T 'author.timestamp().format("%Y-%m-%d %H:%M") ++ " " ++ description.first_line() ++ "\n"'
 
-# Filter trailers
-jj log -r @ -T 'trailers().filter(|t| t.key() == "Reviewed-by").map(|t| t.value()).join(", ")'
+# Filter trailers (keyword, no parens — `trailers()` is a parse error)
+jj log -r @ -T 'trailers.filter(|t| t.key() == "Reviewed-by").map(|t| t.value()).join(", ")'
+
+# First bookmark, else short change ID (0.44+)
+jj log -T 'try(bookmarks.first().name(), change_id.shortest(8)) ++ "\n"'
+
+# Diff stat with a narrow ++-- bar (0.44+)
+jj log -r @ --no-graph -T 'self.diff().stat(80, max_bar_width=10)'
 
 # JSON output
 jj log -T 'json(self) ++ "\n"'
+```
+
+Methods that take arguments are not keywords and need an explicit `self.`:
+`self.diff()`, `self.files()`, `self.contained_in("main")`.
+
+### Workspace templates
+
+`jj workspace list` accepts `-T` and reads `templates.workspace_list`. The
+top-level object is a `WorkspaceRef`, so `name`, `target`, and `root` are keywords.
+Since 0.44 the default output includes workspace roots; `root` is an `Option<FsPath>`,
+so guard it:
+
+```bash
+jj workspace list -T 'name ++ ": " ++ if(root, root.relative(), "<unrecorded>") ++ "\n"'
 ```
 
 ## Minimum Version Requirements
@@ -292,3 +345,23 @@ jj log -T 'json(self) ++ "\n"'
 | `.workspace_name()` on Operation | 0.40+ |
 | `replace()` global function | 0.41+ |
 | `.attributes()` on Operation (replaces `.tags()`) | 0.41+ |
+| `jj workspace list -T` / `templates.workspace_list` | 0.32+ |
+| `try()` global function | 0.44+ |
+| `max_bar_width` arg to `TreeDiff.stat()` | 0.44+ |
+| `FsPath` type | 0.44+ |
+
+### Breaking changes in 0.44
+
+| Item | Before | 0.44 |
+|---|---|---|
+| `WorkspaceRef.root()` | `Template` | `Option<FsPath>` |
+| `RepoPath.absolute()` | `String` | `FsPath` |
+| `path` keyword in `jj config list` templates | `String` | `Option<FsPath>` |
+
+An `FsPath` prints as the path itself; use `.relative()` / `.absolute()` to choose the
+form. An `Option<FsPath>` must be guarded — here `path` is unset for values that come
+from built-in defaults rather than a config file:
+
+```bash
+jj config list --include-defaults -T 'name ++ " " ++ if(path, path, "<builtin>") ++ "\n"'
+```

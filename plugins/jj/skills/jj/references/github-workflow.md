@@ -28,12 +28,16 @@ jj commit -m 'feat(bar): add support for bar'
 # Create bookmark on parent of working copy
 jj bookmark create bar -r @-
 
-# Track so push knows about it
-jj bookmark track bar
+# Push it by name — a brand-new bookmark is tracked automatically (0.42+)
+jj git push --bookmark bar
 
-# Push (only pushes tracked bookmarks with local changes)
+# Afterwards a bare `jj git push` picks it up (only tracked bookmarks are pushed)
 jj git push
 ```
+
+A bare `jj git push` refuses to create a *new* remote bookmark (`Refusing to create new remote bookmark bar@origin`). Either name it once with `--bookmark`/`--change`/`--named` — all three auto-track — or run `jj bookmark track bar@origin` first.
+
+> `jj git push --allow-new` was **removed in 0.42**. `--bookmark` now does what that flag used to gate: "If a bookmark isn't tracking anything yet, the remote bookmark will be tracked automatically."
 
 ## Updating Your Repository
 
@@ -44,11 +48,28 @@ There is no `jj pull`. Use fetch + rebase:
 jj git fetch
 
 # Rebase current branch onto updated main
-jj rebase -d main
+jj rebase -o main
 
 # Rebase multiple branches
-jj rebase -b feature-a -b feature-b -d main
+jj rebase -b feature-a -b feature-b -o main
 ```
+
+### When Upstream Force-Pushed (rewritten history)
+
+Since 0.43, `jj git fetch` **rebases descendants of rewritten revisions by itself**, matching them by change ID. No manual rebase needed:
+
+```shell
+jj git fetch
+# bookmark: feat@origin [updated] untracked
+# Updated 1 rewritten commits.
+# Rebased 1 descendant commits.
+```
+
+Your stacked work lands on the amended upstream commit automatically. Caveats:
+
+- Requires the change ID to survive the rewrite (jj writes a `change-id` Git header; preserved by `git commit --amend`, **not** by a plain `git rebase`).
+- **Immutable descendants are not rebased.**
+- If change IDs were lost, fall back to `jj rebase -s <your-work> -o <new-upstream>`.
 
 ## Addressing PR Review Comments
 
@@ -92,7 +113,7 @@ The `-` suffix is revset syntax: `your-feature-` means "parent of your-feature".
 ### Reordering an Already-Pushed / Stacked Branch
 
 ```shell
-jj rebase --ignore-immutable -s <change> -d <dest>   # reorder; descendants auto-rebase
+jj rebase --ignore-immutable -s <change> -o <dest>   # reorder; descendants auto-rebase
 jj git push --bookmark <name>                        # force-with-lease-safe by default (no flag)
 
 # when interleaving with plain git tooling instead:
@@ -100,6 +121,8 @@ git push --force-with-lease origin <branch>
 ```
 
 `jj git push` only updates the remote if it still matches what jj last fetched (built-in lease safety) — don't reach for `--force`. `--ignore-immutable` works in global *or* subcommand position (`jj rebase --ignore-immutable …` or `jj --ignore-immutable rebase …`).
+
+Push also refuses commits that still contain conflicts (`Won't push commit … since it has conflicts`). `--allow-conflicts` (0.44+) overrides that — see [conflicts.md](conflicts.md#pushing-conflicted-commits) before using it.
 
 ## Working with Others' Bookmarks
 
@@ -114,6 +137,28 @@ jj new feature-x@origin
 ```
 
 With auto-tracking enabled, use `jj new feature-x` directly.
+
+## Tags (0.44+)
+
+Tags are fetched and pushed like bookmarks: as `<name>@<remote>`, tracked by a local tag of the same name.
+
+```shell
+jj tag list --all-remotes      # see local tags and their remote counterparts
+jj git fetch                   # fetches tags too; new remote tags are tracked by default
+jj git push --tag 'v*'         # push tags matching a glob (can be repeated)
+jj tag untrack 'v*'            # stop tracking — leaves v1.0@origin standalone
+jj tag track 'v1.0@origin'     # start tracking again
+```
+
+Three things to watch for:
+
+- **`jj git push --all` now pushes all tags in addition to bookmarks.** If `--all` is your habit, it will publish local tags you never meant to share. Prefer `--tracked`, `--bookmark`, or `--change`.
+- **The first `jj git fetch` in a pre-0.44 repo re-fetches every tag** to initialize tracking state. A wall of tag output is expected once, not a sign of breakage.
+- **Git's `tagOpt` is no longer respected.** Disable tag fetching per remote in jj config instead — `remotes.<name>.fetch-tags = '~*'` (a *pattern*, not the old `all|included|none` enum). See [configuration.md](configuration.md).
+
+`tags()` is part of `builtin_immutable_heads()`, so tracking a new tag can make more commits immutable.
+
+`jj git clone --fetch-tags=all|none|included` was removed in 0.44; use `jj git clone --tag=PATTERN`.
 
 ## Fork Workflow (Multiple Remotes)
 
@@ -169,8 +214,8 @@ Create merge requests and control CI directly from push:
 # Skip CI
 jj git push -o ci.skip
 
-# Create merge request on push
-jj git push --allow-new \
+# Create merge request on push (--bookmark auto-tracks a new bookmark)
+jj git push --bookmark your-feature \
   -o merge_request.create \
   -o merge_request.target=main \
   -o 'merge_request.title=Add feature X' \

@@ -13,8 +13,8 @@ By default, bare paths are parsed as `prefix-glob:` patterns (CWD-relative prefi
 | (default) `prefix-glob:` | CWD-relative path prefix (recursive) | `jj diff src` |
 | `cwd:"path"` | CWD-relative path prefix (recursive) | `cwd:"src/lib"` |
 | `file:"path"` / `cwd-file:` | Exact file match (CWD-relative) | `file:"README.md"` |
-| `glob:"pattern"` / `cwd-glob:` | Unix shell wildcard (CWD-relative) | `glob:"*.rs"` |
-| `prefix-glob:"pattern"` | Glob + directory recursion | `prefix-glob:"*.d"` |
+| `glob:"pattern"` / `cwd-glob:` | Unix shell wildcard (CWD-relative), **non-recursive** — use `**/` to descend | `glob:"**/*.rs"` |
+| `prefix-glob:"pattern"` / `cwd-prefix-glob:` | Glob + directory recursion — `prefix-glob:"*.d"` = `glob:"*.d" \| glob:"*.d/**"` | `prefix-glob:"*.d"` |
 | `root:"path"` | Workspace-relative prefix (recursive) | `root:"src"` |
 | `root-file:"path"` | Workspace-relative exact match | `root-file:"Cargo.toml"` |
 | `root-glob:"pattern"` | Workspace-relative glob | `root-glob:"**/*.py"` |

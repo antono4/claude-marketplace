@@ -132,15 +132,49 @@ jj restore --from <rev> <path>    # take the file from a specific revision
 
 You can resolve some conflicted files while leaving others unresolved. jj tracks conflict state per-file, so partially resolved commits are valid. Use `jj resolve --list` to see remaining conflicts.
 
+## Pushing Conflicted Commits
+
+`jj git push` refuses conflicted commits by default:
+
+```
+Error: Won't push commit 2c5e396b8a86 since it has conflicts
+```
+
+`--allow-conflicts` (0.44+) overrides the check:
+
+```bash
+jj git push --bookmark <name> --allow-conflicts
+```
+
+**What actually lands on the remote is not conflict markers.** Git cannot represent a conflict, so jj pushes its structural form: the commit's authoritative state lives in a non-standard `jj:trees` header, and the tree gains extra root directories plus a README so the inputs aren't garbage-collected:
+
+```
+.jjconflict-base-0/f.txt
+.jjconflict-side-0/f.txt
+.jjconflict-side-1/f.txt
+JJ-CONFLICT-README
+f.txt                     <- contents of the FIRST side only
+```
+
+Consequences:
+
+- Another **jj** repo that fetches this commit sees a normal first-class conflict — this is what makes collaborative resolution work.
+- **Plain Git tooling sees a broken-looking commit**: the `.jjconflict-*/` directories appear as real files, and `f.txt` silently holds one side. Code review, CI, and `git switch` will all be misleading. If you `git switch` to one by accident, `jj abandon` gets you back.
+- The `change-id` header carries the round-trip; a plain `git rebase` on the forge side drops it.
+
+Use it to hand a conflicted stack to a jj-using collaborator, not to open a PR.
+
 ## Opting Out of Auto-Rebase
 
 By default, editing commit B auto-rebases descendants C→D onto the new B′ (conflicts appear immediately). To temporarily keep descendants on the OLD version (git-like diverged branches):
 
 ```bash
-jj duplicate B                     # Create copy K of commit B
-jj rebase --branch C --destination K  # Move C..D onto the copy
+jj duplicate B                     # Create copy K of commit B (sibling of B)
+jj rebase --source C --onto K      # Move C..D onto the copy
 jj new B                           # Work on B freely — C..D are unaffected
 ```
+
+Use `--source`, not `--branch`: `-b C` means `-s roots(K..C)`, which drags **B itself** onto K and defeats the purpose.
 
 This is rarely needed since jj's default (conflicts visible, resolution deferred) is usually preferable.
 
@@ -150,5 +184,6 @@ This is rarely needed since jj's default (conflicts visible, resolution deferred
 - **Auto-rebase works through conflicts** — descendants rebase automatically even when ancestors are conflicted
 - **Correct merge commit rebasing** — conflict resolutions in merge commits are preserved, unlike Git
 - **Deferred resolution** — keep WIP commits rebased on trunk; resolve conflicts when you're ready
-- **Collaborative resolution** — conflicted commits can be shared (when all collaborators use jj)
+- **Collaborative resolution** — conflicted commits can be shared (when all collaborators use jj); see [Pushing Conflicted Commits](#pushing-conflicted-commits)
+- **Batch rewrites preserve conflicts** — `jj run` (0.43+) rewrites each revision in its own working copy and propagates conflicts into the rewritten commits instead of failing
 - **Trivial criss-cross and octopus merges** — cases that produce nested markers in Git are handled cleanly

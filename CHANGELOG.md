@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- jj skill: updated from a jj 0.41.0 baseline to **jj 0.44.0**, covering the 0.42, 0.43, and 0.44 releases (jj skill v1.8.0). Every claim re-verified against the live 0.44.0 binary, the v0.44.0 config schema, and scratch repos with real bare-git remotes; upstream docs were read pinned at the `v0.44.0` tag rather than from the working tree, which is already past the release.
+- jj skill: `jj rebase` examples now use `-o`/`--onto` and `jj restore` uses `-t`/`--into`, matching upstream's own documentation (jj's v0.44.0 docs use `-o` exclusively). The `-d`/`--destination` and `--to` aliases remain accepted and are noted once at each command's definition.
+
+### Added
+
+- jj skill: `jj run` (0.43) — previously absent from the skill entirely — as a reference section, an FAQ recipe, and a SKILL.md entry
+- jj skill: tags as first-class refs (0.44) — fetch/push/track semantics plus the immutability consequence that fetching a tag can freeze commits you were editing
+- jj skill: `jj absorb -i`, `jj git push --allow-conflicts`, `merge_point()`, `forks()`, `builtin_log()`, `try()`, and the 0.42–0.44 config surface (`/etc/jj`, `conf.d/`, `diff.stat.max-bar-width`, `edit-invocation-mode`, alias `.doc`)
+
+### Fixed
+
+- jj skill: removed flags and config keys that no longer exist and were being recommended as current — `jj git push --allow-new` (0.42), `git.auto-local-bookmark` and `git.push-new-bookmarks` (0.42), `git_head()`/`git_refs()` (0.43), `ui.revsets-use-glob-by-default` (0.43), and the `fetch-tags` `all|included|none` enum (0.44)
+- jj skill: corrected `jj file search` (the `-p`/`--pattern` flag is required and positionals are filesets) and the colocated-repo guidance to use `jj git import`/`jj git export`, which became no-ops in 0.44
+- jj skill: fixed errors predating the 0.42–0.44 window, surfaced by a mechanical audit that diffed all 510 documented `jj <subcommand> --flag` pairs against the binary — `jj show -p`, `jj bisect run -s/-e`, `jj revert -s`, and `jj bookmark advance -r` do not exist; the `all:` revset modifier was removed in 0.38 and is now a parse error; the `:x`/`x:` revset operators never existed; `trailers()` and the `[[--when]]` conditional-config form were hard parse errors; and `signing.sign-all`, `git.shallow-clone-depth`, and `snapshot.use-watchman` are not real config keys
+- jj skill: fixed a semantic bug in the auto-rebase opt-out recipe, where `jj rebase -b C -d K` expands to `-s roots(K..C)` and drags the base commit onto the duplicate, defeating the recipe (now `--source`)
+
 ## [0.45.0] - 2026-07-29
 
 ### Added
