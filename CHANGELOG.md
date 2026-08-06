@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-08-06
+
 ### Changed
 
 - jj skill: updated from a jj 0.41.0 baseline to **jj 0.44.0**, covering the 0.42, 0.43, and 0.44 releases (jj skill v1.8.0). Every claim re-verified against the live 0.44.0 binary, the v0.44.0 config schema, and scratch repos with real bare-git remotes; upstream docs were read pinned at the `v0.44.0` tag rather than from the working tree, which is already past the release.
@@ -657,7 +659,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Marketplace metadata and owner information
 - Plugin entry with `skills` field for proper skill loading
 
-[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.45.0...HEAD
+[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.46.0...HEAD
+[0.46.0]: https://github.com/dashed/claude-marketplace/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/dashed/claude-marketplace/compare/v0.44.0...v0.45.0
 [0.44.0]: https://github.com/dashed/claude-marketplace/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/dashed/claude-marketplace/compare/v0.42.1...v0.43.0
