@@ -615,6 +615,42 @@
         "authentication": "ON_INSTALL"
       },
       "category": "Productivity"
+    },
+    {
+      "name": "model-routing",
+      "source": {
+        "source": "local",
+        "path": "./plugins/model-routing"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "code-walkthrough",
+      "source": {
+        "source": "local",
+        "path": "./plugins/code-walkthrough"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "comment-slop",
+      "source": {
+        "source": "local",
+        "path": "./plugins/comment-slop"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
     }
   ]
 }
