@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- comment-slop skill: find and remove AI-slop comments from a code change while protecting the ones that carry real reasoning. Encodes a three-clause test (the fact a comment states must be true at *this* layer, not already visible in the code, and not stated better nearby), a seven-mode taxonomy built from a production review with the real code and the reviewer's actual reactions (wrong layer, redundant with the adjacent line, undefined term at point of use, restates the signature, forward references and planning artifacts, prose that contradicts the code, narrating the code), a "what to keep" table with the asymmetry that a deleted rationale costs more than a bland comment, and a six-step diff-scoped workflow (scope to the diff → read the code the comment sits on → verify the claim before preserving it → keep/rewrite/delete per comment → rewrite rather than delete published-docs docstrings → commit the cleanup separately). Includes the second-order finding that mechanically shortening comments makes slop worse — a style pass constrains sentence structure but cannot do content selection, so it strips the *why* and leaves bland declaratives; the judgment it cannot make is that a comment left with only obvious statements should be deleted, not shortened
+
 ## [0.46.0] - 2026-08-06
 
 ### Changed

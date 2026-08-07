@@ -1281,6 +1281,30 @@
       "skills": [
         "./skills"
       ]
+    },
+    {
+      "name": "comment-slop",
+      "version": "1.0.0",
+      "source": "./plugins/comment-slop",
+      "description": "Find and remove AI-slop comments — ones that restate the code, describe another layer's behavior, or narrate planning that never shipped — while protecting the comments that carry real reasoning. Use when a reviewer calls a comment useless or AI-written, when auditing comments and docstrings on a branch or PR, or before sending a change for review. Encodes a three-clause test, a seven-mode taxonomy with real examples, and a diff-scoped keep/rewrite/delete workflow.",
+      "author": {
+        "name": "Alberto Leal"
+      },
+      "repository": "https://github.com/dashed/claude-marketplace/tree/master/plugins/comment-slop",
+      "license": "MIT",
+      "keywords": [
+        "comments",
+        "docstrings",
+        "code-review",
+        "cleanup",
+        "ai-slop",
+        "refactoring",
+        "documentation"
+      ],
+      "strict": false,
+      "skills": [
+        "./skills"
+      ]
     }
   ]
 }
