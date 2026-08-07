@@ -124,7 +124,7 @@ A comment is load-bearing if deleting it leaves a reader with a question the cod
 |---|---|
 | explains **why** this approach and not the obvious one | Would a competent reader "simplify" the code away if the comment were gone? |
 | names a race, a lock's purpose, or an ordering constraint | Does it say what breaks without the ordering? |
-| states an invariant and what enforces it | Is the invariant unenforceable to see from one function? |
+| states an invariant and what enforces it | Is the invariant impossible to see from one function? |
 | carries context from an external system, spec, or requirement | Is that fact unavailable anywhere else in the repo? |
 | records a deliberate trade-off | Does it name the cost that was accepted? |
 | justifies a guard that looks removable | Would deleting the guard still pass the tests? |
@@ -173,15 +173,18 @@ The judgment a mechanical pass cannot make: **a comment that survives trimming w
 Slop arrives with new code, so audit the change rather than the repository. A repo-wide sweep produces mass edits nobody can review and touches comments whose context was never loaded.
 
 ```bash
-git diff master...HEAD --stat                 # pick the files in scope
-git diff master...HEAD -U15 -- path/to/file   # wide context for judgment
+base=main                                      # the branch the PR targets
+git diff "$base"...HEAD --stat                 # pick the files in scope
+git diff "$base"...HEAD -U15 -- path/to/file   # wide context for judgment
 ```
 
 For an inventory of what arrived, list the added comment lines — then open each site rather than acting on this list:
 
 ```bash
-git diff master...HEAD -U0 | grep -E '^\+\s*(#|//|/\*|\*|"""|<!--)'
+git diff "$base"...HEAD -U0 | grep -E '^\+\s*(#|//|/\*|\*|"""|<!--)'
 ```
+
+This pattern only matches lines that *start* with a comment marker, so it under-counts: trailing comments (`x += 1  # why`) and docstring body lines do not appear in it. Treat it as a starting list — the full-diff read in step 2 is what catches the rest.
 
 ### 2. Read the code the comment sits on
 

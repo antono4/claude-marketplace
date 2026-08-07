@@ -4,6 +4,15 @@ All notable changes to the comment-slop skill in this marketplace will be docume
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.0.1] - 2026-08-07
+
+### Fixed
+- Diff commands no longer hardcode `master` as the base branch: a `base=main` variable (with a comment that it is the branch the PR targets) feeds all three commands, so they copy-paste correctly on `main`-based repos
+- Repaired a garbled test in the "What to keep" table — "Is the invariant unenforceable to see from one function?" → "Is the invariant impossible to see from one function?"
+
+### Changed
+- Documented the blind spots of the added-comment inventory grep: it only matches lines that start with a comment marker, so trailing comments (`x += 1  # why`) and docstring body lines are under-counted — treat it as a starting list, with the full-diff read in step 2 catching the rest
+
 ## [1.0.0] - 2026-08-07
 
 ### Added
