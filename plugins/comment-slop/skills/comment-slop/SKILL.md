@@ -1,6 +1,6 @@
 ---
 name: comment-slop
-description: "Find and remove AI-slop comments — ones that restate the code, describe another layer's behavior, or narrate planning that never shipped — while protecting the comments that carry real reasoning. Use when a reviewer calls a comment useless, unclear, or AI-written; when auditing or cleaning up comments and docstrings on a branch, diff, or PR; or before sending a change for review."
+description: "Find and remove AI-slop comments — ones that restate the code, describe another layer's behavior, or narrate planning that never shipped — while protecting the comments that carry real reasoning. Use when a reviewer calls a comment useless, unclear, or AI-written; when auditing or cleaning up comments and docstrings on a branch, diff, or PR; when comments should be reduced, simplified, or restyled to ASD-STE100 / simplified technical English; or before sending a change for review."
 license: MIT
 ---
 
@@ -164,7 +164,23 @@ A real case:
 
 The specificity (which callers, through what) and the reason (the package boundary) both vanished. The trimmed version is shorter, grammatically simpler, and worthless.
 
-The judgment a mechanical pass cannot make: **a comment that survives trimming with only obvious statements left should be deleted, not shortened.** Decide keep-or-delete first. Only then edit wording, and only to fix the layer, the mood, or an undefined term.
+The judgment a mechanical pass cannot make: **a comment that survives trimming with only obvious statements left should be deleted, not shortened.** Decide keep-or-delete first. Only then edit wording — to fix the layer, the mood, an undefined term, or to apply the style rules below.
+
+## Style for what survives (ASD-STE100)
+
+Style is the second pass, never the first. Content selection (keep / rewrite / delete) decides *which facts* a comment states; only then does style decide *how the sentences say them*. Run the two in the other order and you get the trimming failure above.
+
+For the comments you rewrite — and for any comment text you write yourself — apply the ASD-STE100 habits that survive contact with code:
+
+- **Short sentences, one idea each.** A comment holding two facts is two sentences.
+- **Active voice, named actor.** "The resolver applies the defaults", not "defaults are applied" — the actor is often the load-bearing information (which layer does it: mode 1's question).
+- **Present tense for what the code does; conditional for what a guard prevents** (mode 6).
+- **One term, one meaning.** Reuse the exact identifier, or the term the module docstring defines; a synonym forces the reader to check whether it names the same thing (mode 3).
+- **No filler openers or intensifiers.** "Note that", "simply", "it is important to" — delete the phrase, keep the sentence.
+
+Kept comments stay untouched by default — restyling every keep is churn. Restyle a keep only when its wording breaks these rules badly enough to slow the reader (a buried actor, a 40-word sentence), and then without touching content.
+
+The override rule: **a style edit may not delete a fact.** If a rule and a fact collide — the sentence runs long because the why-clause is long — the fact wins and the rule loses. ASD-STE100 constrains wording; the three-clause test alone decides content.
 
 ## Workflow
 
@@ -199,7 +215,7 @@ A comment asserting a fact may simply be stale: the code moved and the sentence 
 | Verdict | When |
 |---|---|
 | **keep** | Passes all three clauses. Leave it alone — rewording a good comment is churn that hides the real edits. |
-| **rewrite** | The fact is real but stated at the wrong layer, in the wrong mood, or with an undefined term. Restate it at this layer; do not merely shorten it. |
+| **rewrite** | The fact is real but stated at the wrong layer, in the wrong mood, with an undefined term, or wrapped in redundant restatement. Restate it at this layer, or *reduce* it — delete the clauses that fail the test, keep the ones that pass. Then apply the [style rules](#style-for-what-survives-asd-ste100). Reduction is selection by the test, not compression. |
 | **delete** | Once the wrong-layer content and the already-visible content are removed, nothing is left. |
 
 Expect the pass to be a net deletion. Adding a fresh explanatory paragraph where a bad one was removed is how the next reviewer arrives at the same complaint.

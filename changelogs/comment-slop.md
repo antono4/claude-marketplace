@@ -4,6 +4,16 @@ All notable changes to the comment-slop skill in this marketplace will be docume
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.0] - 2026-08-07
+
+### Added
+- "Style for what survives (ASD-STE100)" section: a second-pass wording standard for rewritten comments (and any newly written comment text), applied only after content selection — short sentences with one idea each, active voice with a named actor (mode 1's layer question), present tense for behavior / conditional for guards (mode 6), one-term-one-meaning tied to the code's identifiers (mode 3), and no filler openers or intensifiers. Kept comments stay untouched by default; restyle a keep only when its wording is bad enough to slow the reader. The override rule makes it safe against the skill's own trimming failure: a style edit may not delete a fact — when a rule and a fact collide, the fact wins
+
+### Changed
+- The rewrite verdict now covers partial redundancy: a comment wrapped in redundant restatement is *reduced* — the clauses that fail the three-clause test are deleted and the ones that pass are kept, with the distinction spelled out that reduction is selection by the test, not compression
+- "Trimming is not the fix" now hands off to the style section: wording edits after the keep-or-delete decision include applying the style rules, not just fixing the layer, the mood, or an undefined term
+- Frontmatter description adds the reduce/simplify/restyle-to-ASD-STE100 triggers
+
 ## [1.0.1] - 2026-08-07
 
 ### Fixed
