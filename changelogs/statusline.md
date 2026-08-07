@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- Moved the `ctx N%` segment from the end of the statusline to right after the model name, so the layout is now `model | ctx N% | dir [jj …] [git …]`. On a narrow terminal this keeps context usage on the first line with the model instead of pushing it onto a line of its own after the VCS blocks. Updated the reference script's `segs[]`/`seps[]` arrays, all Output Examples (including the `COLUMNS=40` wrapped example), and the packer descriptions in Design Notes and "Responsive Width-Aware Wrapping"
+
 ## [1.3.1] - 2026-06-25
 
 ### Changed

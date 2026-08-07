@@ -210,7 +210,7 @@ fi
 # before segs[i] when it shares a line with the previous segment. A segment
 # that wraps to a new line starts that line with no leading separator. On a
 # wide terminal everything packs onto one line and reproduces the original
-# "model | dir [jj ...] [git ...] | ctx N%" layout byte-for-byte; on a narrow
+# "model | ctx N% | dir [jj ...] [git ...]" layout byte-for-byte; on a narrow
 # terminal it breaks at segment boundaries instead of overflowing.
 #
 # Width source: Claude Code (v2.1.153+) exports COLUMNS before running this
@@ -219,12 +219,11 @@ cols=${COLUMNS:-80}            # 80 = fallback for older Claude Code / non-CC sh
 budget=$((cols - 2))           # small margin; built-in padding width is undocumented
 [ "$budget" -lt 10 ] && budget=10
 
-segs=("$model_name" "$current_dir")
-seps=("" " | ")
+segs=("$model_name" "ctx ${pct}%" "$current_dir")
+seps=("" " | " " | ")
 for seg in "${vcs_segments[@]}"; do
     segs+=("$seg"); seps+=(" ")
 done
-segs+=("ctx ${pct}%"); seps+=(" | ")
 
 # NB: no ANSI/OSC 8 escapes are emitted here, so ${#seg} == display width.
 # If color/hyperlinks are added later, measure an escape-stripped shadow copy
@@ -258,27 +257,26 @@ On a terminal wide enough to fit the line, everything packs onto one row (identi
 
 ```
 # Colocated jj+git repo (both shown)
-Opus 4.6 | /path/to/project [jj feature @ znnuytsz: 1 modified, 2 ahead] [git feature: 1 untracked] | ctx 12%
+Opus 4.6 | ctx 12% | /path/to/project [jj feature @ znnuytsz: 1 modified, 2 ahead] [git feature: 1 untracked]
 # jj-only (non-colocated)
-Opus 4.6 | /path/to/project [jj @ uoylmlmx] | ctx 12%
+Opus 4.6 | ctx 12% | /path/to/project [jj @ uoylmlmx]
 # jj with conflict and remote tracking
-Opus 4.6 | /path/to/project [jj main @ kntqzsqt: conflict, 3 modified, 1 behind] | ctx 12%
+Opus 4.6 | ctx 12% | /path/to/project [jj main @ kntqzsqt: conflict, 3 modified, 1 behind]
 # git-only repo
-Opus 4.6 | /path/to/project [git master: 2 staged, 1 modified] | ctx 12%
+Opus 4.6 | ctx 12% | /path/to/project [git master: 2 staged, 1 modified]
 # Detached HEAD (checkout by hash, bisect, jj-colocated)
-Opus 4.6 | /path/to/project [git detached @ d7ead68: 1 modified] | ctx 12%
+Opus 4.6 | ctx 12% | /path/to/project [git detached @ d7ead68: 1 modified]
 # Colocated repo where git moved without jj noticing (e.g. direct git commit)
-Opus 4.6 | /path/to/project [jj @ snzksmsp] [git detached @ 76137d1] [jj ⇄ git out of sync: git +1] | ctx 12%
+Opus 4.6 | ctx 12% | /path/to/project [jj @ snzksmsp] [git detached @ 76137d1] [jj ⇄ git out of sync: git +1]
 # No VCS
-Opus 4.6 | /tmp | ctx 12%
+Opus 4.6 | ctx 12% | /tmp
 ```
 
 On a narrow terminal the same line wraps at segment boundaries instead of overflowing (the git-only repo above at `COLUMNS=40`):
 
 ```
-Opus 4.6 | /path/to/project
+Opus 4.6 | ctx 12% | /path/to/project
 [git master: 2 staged, 1 modified]
-ctx 12%
 ```
 
 ## Design Notes
@@ -290,7 +288,7 @@ ctx 12%
 - **IFS tab gotcha**: every jj template field needs a non-empty placeholder (`"-"`) — tab is IFS *whitespace*, so `read` collapses consecutive tabs instead of preserving empty fields. An empty field shifts the columns (this bug once made every repo show `conflict` and silently disabled jj ahead/behind)
 - **`--ignore-working-copy`**: Prevents expensive snapshot operations in the statusline
 - **`--no-pager`**: Ensures jj doesn't page when running non-interactively
-- **Width-aware wrapping**: the final block packs segments (model, dir, each VCS block, `ctx`) onto lines using a *parallel* `seps[]` array, so a wide terminal renders the original single line unchanged (model→dir and →`ctx` join with `" | "`; VCS blocks hug the dir with a space) while a narrow one wraps at segment boundaries. Width comes from `COLUMNS` (`${COLUMNS:-80}`); an over-wide `current_dir` is tail-truncated with a leading `…`. See [Responsive Width-Aware Wrapping](#responsive-width-aware-wrapping)
+- **Width-aware wrapping**: the final block packs segments (model, `ctx`, dir, each VCS block) onto lines using a *parallel* `seps[]` array, so a wide terminal renders the original single line unchanged (model→`ctx` and →dir join with `" | "`; VCS blocks hug the dir with a space) while a narrow one wraps at segment boundaries. Width comes from `COLUMNS` (`${COLUMNS:-80}`); an over-wide `current_dir` is tail-truncated with a leading `…`. See [Responsive Width-Aware Wrapping](#responsive-width-aware-wrapping)
 - **Performance**: 2-3 subprocess calls for jj, 3-5 for git, plus 2-3 for the sync check in colocated repos; acceptable for statusline frequency
 
 ## Multi-Line Example
@@ -328,13 +326,13 @@ cols=${COLUMNS:-80}
 
 **What does NOT work, and why:** Claude Code captures the script's stdout (it is not connected to the TTY) and pipes the JSON in on stdin, so there is no terminal for the script to query. `tput cols`, `stty size`, language-level width detection, and `/dev/tty` are all non-functional/undocumented — `COLUMNS` is the only supported mechanism.
 
-**Greedy segment packer.** The status is built as discrete logical segments — model, dir, each `[jj …]`/`[git …]`/`[jj ⇄ git …]` block, and `ctx` — in a `segs[]` array, with a *parallel* `seps[]` array giving the separator that precedes each segment when it shares a line. Per-segment separators (rather than one uniform separator) are what let a wide terminal reproduce the original `model | dir [jj …] [git …] | ctx N%` layout byte-for-byte: model→dir and →`ctx` join with `" | "`, while VCS blocks hug the dir with a bare space. The packer walks the segments, appending to the current line while the next segment fits the width budget and breaking to a new line otherwise:
+**Greedy segment packer.** The status is built as discrete logical segments — model, `ctx`, dir, and each `[jj …]`/`[git …]`/`[jj ⇄ git …]` block — in a `segs[]` array, with a *parallel* `seps[]` array giving the separator that precedes each segment when it shares a line. Per-segment separators (rather than one uniform separator) are what let a wide terminal reproduce the original `model | ctx N% | dir [jj …] [git …]` layout byte-for-byte: model→`ctx` and →dir join with `" | "`, while VCS blocks hug the dir with a bare space. The packer walks the segments, appending to the current line while the next segment fits the width budget and breaking to a new line otherwise:
 
 ```bash
 cols=${COLUMNS:-80}          # set by Claude Code v2.1.153+; 80 = fallback
 budget=$((cols - 2)); [ "$budget" -lt 10 ] && budget=10
 
-# segs[] / seps[] built as in the reference script (model, dir, VCS blocks, ctx)
+# segs[] / seps[] built as in the reference script (model, ctx, dir, VCS blocks)
 line=""; linelen=0; out=()
 for i in "${!segs[@]}"; do
     seg="${segs[$i]}"; [ -z "$seg" ] && continue
