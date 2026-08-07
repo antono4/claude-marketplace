@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-08-07
+
 ### Added
 - comment-slop skill: "Style for what survives" — an ASD-STE100-derived second-pass wording standard for comments that pass content selection (short sentences, active voice with named actor, behavior in present tense / guards in the conditional, one-term-one-meaning, no filler), guarded by the override rule that a style edit may not delete a fact; the rewrite verdict now also covers *reducing* partially redundant comments by deleting the clauses that fail the three-clause test (comment-slop v1.1.0)
 - comment-slop skill: find and remove AI-slop comments from a code change while protecting the ones that carry real reasoning. Encodes a three-clause test (the fact a comment states must be true at *this* layer, not already visible in the code, and not stated better nearby), a seven-mode taxonomy built from a production review with the real code and the reviewer's actual reactions (wrong layer, redundant with the adjacent line, undefined term at point of use, restates the signature, forward references and planning artifacts, prose that contradicts the code, narrating the code), a "what to keep" table with the asymmetry that a deleted rationale costs more than a bland comment, and a six-step diff-scoped workflow (scope to the diff → read the code the comment sits on → verify the claim before preserving it → keep/rewrite/delete per comment → rewrite rather than delete published-docs docstrings → commit the cleanup separately). Includes the second-order finding that mechanically shortening comments makes slop worse — a style pass constrains sentence structure but cannot do content selection, so it strips the *why* and leaves bland declaratives; the judgment it cannot make is that a comment left with only obvious statements should be deleted, not shortened
+
+### Changed
+- statusline skill: moved the `ctx N%` segment to sit after the model name (`model | ctx N% | dir [jj …] [git …]`), keeping context usage on the first line when a narrow terminal wraps (statusline v1.3.2)
+- statusline skill: refreshed the Available JSON Fields table against the current statusline docs (adds `context_window.current_usage.*`, `fast_mode`, `rate_limits.*.resets_at`, `prompt_id`, `transcript_path`, `output_style.name`, `worktree.original_cwd/original_branch`) and added the session-start/resume and `refreshInterval` run triggers to the Overview (statusline v1.3.3)
+
+### Removed
+- statusline skill: the jj ⇄ git sync segment from the reference script — it relied on the `git_head()` revset, removed in jj 0.43, so on current jj the segment silently never rendered (verified on jj 0.44.0) (statusline v1.3.3)
+
+### Fixed
+- comment-slop skill: audit fixes — diff commands no longer hardcode `master` as the base branch, a garbled test in the "What to keep" table was repaired, and the added-comment inventory grep documents its blind spots (comment-slop v1.0.1)
+- Resynced all 17 stale generated Codex plugin manifests (including first manifests for comment-slop, code-walkthrough, and model-routing); `make check-codex-plugins` passes again
 
 ## [0.46.0] - 2026-08-06
 
@@ -663,7 +676,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Marketplace metadata and owner information
 - Plugin entry with `skills` field for proper skill loading
 
-[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.46.0...HEAD
+[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.47.0...HEAD
+[0.47.0]: https://github.com/dashed/claude-marketplace/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/dashed/claude-marketplace/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/dashed/claude-marketplace/compare/v0.44.0...v0.45.0
 [0.44.0]: https://github.com/dashed/claude-marketplace/compare/v0.43.0...v0.44.0
