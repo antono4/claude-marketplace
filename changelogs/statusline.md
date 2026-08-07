@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-08-07
+
+### Removed
+- The jj ⇄ git sync segment (added in 1.2.0) from the reference script, its Output Example, and its Design Notes bullet. It relied on the `git_head()` revset, which jj removed in 0.43 (deprecated 0.37) — verified on jj 0.44.0, the call fails with ``Function `git_head` doesn't exist``, the error is swallowed by `2>/dev/null`, and the segment silently never rendered. The suggested stand-in (`first_parent(@)`) only approximates the last-imported git HEAD and false-positives whenever `@` is not parked on it, so the feature was dropped rather than rewritten
+
+### Added
+- Missing stdin JSON fields to the Available JSON Fields table, verified against the official statusline docs: `context_window.current_usage.*` (per-request token breakdown incl. cache splits), `fast_mode`, `rate_limits.*.resets_at`, `prompt_id`, `transcript_path`, `output_style.name`, `worktree.original_cwd/original_branch`; `vim.mode` now lists `VISUAL LINE`
+- Two documented run triggers missing from the Overview: the script runs once at session start (including resume), and on `refreshInterval` timer elapse
+
+### Fixed
+- Stray unmatched code fence at the end of the file (after the Prerequisites list)
+- Empty-string-safe numeric guards: the four ahead/behind checks now test `${ahead:-0}`/`${behind:-0}` so a failed `git rev-list` cannot produce an "integer expression expected" test error
+
 ## [1.3.2] - 2026-08-07
 
 ### Changed

@@ -7,7 +7,7 @@ description: Configure the Claude Code status line with VCS-aware scripts showin
 
 ## Overview
 
-Claude Code supports a custom status line via a shell script that receives JSON session data on stdin and outputs text to stdout. The script runs after each assistant message, after `/compact`, on permission mode changes, and on vim mode toggles (debounced at 300ms). Supports multiple lines, ANSI colors, and OSC 8 hyperlinks.
+Claude Code supports a custom status line via a shell script that receives JSON session data on stdin and outputs text to stdout. The script runs once at session start (including resume), then after each assistant message, after `/compact`, on permission mode changes, on vim mode toggles, and when a configured `refreshInterval` timer elapses (debounced at 300ms). Supports multiple lines, ANSI colors, and OSC 8 hyperlinks.
 
 ## Setup
 
@@ -61,18 +61,25 @@ The script receives JSON on stdin with these fields:
 | `context_window.context_window_size` | Max context window (200000 or 1000000) |
 | `context_window.total_input_tokens` | Input tokens in current context |
 | `context_window.total_output_tokens` | Output tokens from last response |
+| `context_window.current_usage.*` | Token breakdown of the latest request: `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens` |
 | `exceeds_200k_tokens` | Whether tokens exceed 200k threshold |
+| `fast_mode` | Whether fast mode is enabled |
 | `effort.level` | Reasoning effort (low/medium/high/xhigh/max) |
 | `thinking.enabled` | Whether extended thinking is enabled |
 | `rate_limits.five_hour.used_percentage` | 5-hour rate limit usage (Pro/Max only) |
 | `rate_limits.seven_day.used_percentage` | 7-day rate limit usage (Pro/Max only) |
+| `rate_limits.*.resets_at` | Epoch timestamp when that limit resets |
 | `session_id` | Unique session identifier |
 | `session_name` | Custom name from `--name` or `/rename` |
+| `prompt_id` | ID of the current prompt |
+| `transcript_path` | Path to the session transcript (JSONL) |
 | `version` | Claude Code version |
-| `vim.mode` | Current vim mode (NORMAL/INSERT/VISUAL) |
+| `output_style.name` | Active output style |
+| `vim.mode` | Current vim mode (NORMAL/INSERT/VISUAL/VISUAL LINE) |
 | `agent.name` | Agent name if using `--agent` |
 | `pr.number`, `pr.url`, `pr.review_state` | Open PR info for current branch |
 | `worktree.name/path/branch` | Worktree info during `--worktree` sessions |
+| `worktree.original_cwd/original_branch` | Directory and branch before entering the worktree |
 
 Fields marked may be absent or null - use `jq` fallbacks like `// 0` or `// empty`.
 
@@ -125,8 +132,8 @@ if jj root -R "$current_dir" --ignore-working-copy >/dev/null 2>&1; then
                 remote_ref=$(git -C "$current_dir" rev-parse "origin/$first_bookmark" 2>/dev/null)
                 ahead=$(git -C "$current_dir" rev-list --count "$remote_ref..$commit_hash" 2>/dev/null)
                 behind=$(git -C "$current_dir" rev-list --count "$commit_hash..$remote_ref" 2>/dev/null)
-                if [ "$ahead" -gt 0 ]; then status_parts+=("${ahead} ahead"); fi
-                if [ "$behind" -gt 0 ]; then status_parts+=("${behind} behind"); fi
+                if [ "${ahead:-0}" -gt 0 ]; then status_parts+=("${ahead} ahead"); fi
+                if [ "${behind:-0}" -gt 0 ]; then status_parts+=("${behind} behind"); fi
             fi
         fi
 
@@ -170,8 +177,8 @@ if git -C "$current_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         if [ -n "$upstream" ]; then
             ahead=$(git -C "$current_dir" rev-list --count @{upstream}..HEAD 2>/dev/null)
             behind=$(git -C "$current_dir" rev-list --count HEAD..@{upstream} 2>/dev/null)
-            if [ "$ahead" -gt 0 ]; then status_parts+=("${ahead} ahead"); fi
-            if [ "$behind" -gt 0 ]; then status_parts+=("${behind} behind"); fi
+            if [ "${ahead:-0}" -gt 0 ]; then status_parts+=("${ahead} ahead"); fi
+            if [ "${behind:-0}" -gt 0 ]; then status_parts+=("${behind} behind"); fi
         fi
 
         if [ ${#status_parts[@]} -eq 0 ]; then
@@ -179,28 +186,6 @@ if git -C "$current_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         else
             status=$(printf '%s, ' "${status_parts[@]}"); status=${status%, }
             vcs_segments+=("[git ${branch}: ${status}]")
-        fi
-    fi
-fi
-
-# jj ⇄ git sync check (colocated repos): compare git's actual HEAD with jj's
-# last-imported view of it (git_head()). They diverge when git moves without a
-# jj command running afterward — and the jj calls above use
-# --ignore-working-copy precisely so this script never triggers the re-import.
-if [ -n "$jj_data" ]; then
-    jj_git_head=$(jj --no-pager --ignore-working-copy -R "$current_dir" log --no-graph -r 'git_head()' -T 'commit_id' 2>/dev/null)
-    git_head=$(git -C "$current_dir" rev-parse HEAD 2>/dev/null)
-    if [ -n "$jj_git_head" ] && [ -n "$git_head" ] && [ "$jj_git_head" != "$git_head" ]; then
-        git_ahead=$(git -C "$current_dir" rev-list --count "$jj_git_head..$git_head" 2>/dev/null || echo 0)
-        jj_ahead=$(git -C "$current_dir" rev-list --count "$git_head..$jj_git_head" 2>/dev/null || echo 0)
-        sync_parts=()
-        [ "${git_ahead:-0}" -gt 0 ] && sync_parts+=("git +${git_ahead}")
-        [ "${jj_ahead:-0}" -gt 0 ] && sync_parts+=("jj +${jj_ahead}")
-        if [ ${#sync_parts[@]} -gt 0 ]; then
-            sync=$(printf '%s, ' "${sync_parts[@]}"); sync=${sync%, }
-            vcs_segments+=("[jj ⇄ git out of sync: ${sync}]")
-        else
-            vcs_segments+=("[jj ⇄ git out of sync]")
         fi
     fi
 fi
@@ -266,8 +251,6 @@ Opus 4.6 | ctx 12% | /path/to/project [jj main @ kntqzsqt: conflict, 3 modified,
 Opus 4.6 | ctx 12% | /path/to/project [git master: 2 staged, 1 modified]
 # Detached HEAD (checkout by hash, bisect, jj-colocated)
 Opus 4.6 | ctx 12% | /path/to/project [git detached @ d7ead68: 1 modified]
-# Colocated repo where git moved without jj noticing (e.g. direct git commit)
-Opus 4.6 | ctx 12% | /path/to/project [jj @ snzksmsp] [git detached @ 76137d1] [jj ⇄ git out of sync: git +1]
 # No VCS
 Opus 4.6 | ctx 12% | /tmp
 ```
@@ -284,12 +267,11 @@ Opus 4.6 | ctx 12% | /path/to/project
 - **Dual VCS**: Both jj and git blocks run independently; colocated repos show both
 - **jj ahead/behind**: Uses `commit_id` (renders as full git commit hash) then `git rev-list --count` against the first bookmark's remote tracking ref
 - **Detached HEAD fallback**: `git branch --show-current` prints nothing when detached, so the git segment falls back to `detached @ <short-hash>`. Without this, jj-colocated repos would *never* show the git segment — jj keeps git permanently detached
-- **jj ⇄ git sync check**: compares `git rev-parse HEAD` with jj's last-imported `git_head()`; the segment appears only when they diverge, with directional counts (`git +N` / `jj +N`). Divergence happens when git commands run without a jj command following — and stays visible because this script's `--ignore-working-copy` calls never trigger jj's auto-import
 - **IFS tab gotcha**: every jj template field needs a non-empty placeholder (`"-"`) — tab is IFS *whitespace*, so `read` collapses consecutive tabs instead of preserving empty fields. An empty field shifts the columns (this bug once made every repo show `conflict` and silently disabled jj ahead/behind)
 - **`--ignore-working-copy`**: Prevents expensive snapshot operations in the statusline
 - **`--no-pager`**: Ensures jj doesn't page when running non-interactively
 - **Width-aware wrapping**: the final block packs segments (model, `ctx`, dir, each VCS block) onto lines using a *parallel* `seps[]` array, so a wide terminal renders the original single line unchanged (model→`ctx` and →dir join with `" | "`; VCS blocks hug the dir with a space) while a narrow one wraps at segment boundaries. Width comes from `COLUMNS` (`${COLUMNS:-80}`); an over-wide `current_dir` is tail-truncated with a leading `…`. See [Responsive Width-Aware Wrapping](#responsive-width-aware-wrapping)
-- **Performance**: 2-3 subprocess calls for jj, 3-5 for git, plus 2-3 for the sync check in colocated repos; acceptable for statusline frequency
+- **Performance**: 2-3 subprocess calls for jj, 3-5 for git; acceptable for statusline frequency
 
 ## Multi-Line Example
 
@@ -326,7 +308,7 @@ cols=${COLUMNS:-80}
 
 **What does NOT work, and why:** Claude Code captures the script's stdout (it is not connected to the TTY) and pipes the JSON in on stdin, so there is no terminal for the script to query. `tput cols`, `stty size`, language-level width detection, and `/dev/tty` are all non-functional/undocumented — `COLUMNS` is the only supported mechanism.
 
-**Greedy segment packer.** The status is built as discrete logical segments — model, `ctx`, dir, and each `[jj …]`/`[git …]`/`[jj ⇄ git …]` block — in a `segs[]` array, with a *parallel* `seps[]` array giving the separator that precedes each segment when it shares a line. Per-segment separators (rather than one uniform separator) are what let a wide terminal reproduce the original `model | ctx N% | dir [jj …] [git …]` layout byte-for-byte: model→`ctx` and →dir join with `" | "`, while VCS blocks hug the dir with a bare space. The packer walks the segments, appending to the current line while the next segment fits the width budget and breaking to a new line otherwise:
+**Greedy segment packer.** The status is built as discrete logical segments — model, `ctx`, dir, and each `[jj …]`/`[git …]` block — in a `segs[]` array, with a *parallel* `seps[]` array giving the separator that precedes each segment when it shares a line. Per-segment separators (rather than one uniform separator) are what let a wide terminal reproduce the original `model | ctx N% | dir [jj …] [git …]` layout byte-for-byte: model→`ctx` and →dir join with `" | "`, while VCS blocks hug the dir with a bare space. The packer walks the segments, appending to the current line while the next segment fits the width budget and breaking to a new line otherwise:
 
 ```bash
 cols=${COLUMNS:-80}          # set by Claude Code v2.1.153+; 80 = fallback
@@ -354,12 +336,11 @@ Wide terminal → one line (identical to the non-wrapping output); narrow → wr
 **Caveats:**
 - **ANSI/OSC 8 escapes inflate `${#seg}`** — it counts the escape bytes, so colored/hyperlinked segments wrap too early. The reference script emits no escapes, so `${#seg}` equals the display width; if you add color, measure a plain-text shadow copy of each segment (strip escapes with `sed -E 's/\x1b\[[0-9;]*m//g'`) and pack on that length while emitting the colored version.
 - **A single segment wider than `budget`** (usually a long `current_dir`) can't break at a boundary. The reference script truncates such a segment to a leading `…` plus the tail (`seg="…${seg: -$((budget - 1))}"`) rather than letting it overflow.
-- **`${#var}` counts code points, not display columns** — fine for ASCII, the `▓░` bar glyphs, and the `⇄` sync arrow (1 column each), but wide CJK/emoji may miscount. Acceptable as a statusline heuristic.
+- **`${#var}` counts code points, not display columns** — fine for ASCII and the `▓░` bar glyphs (1 column each), but wide CJK/emoji may miscount. Acceptable as a statusline heuristic.
 
 ## Prerequisites
 
 - `jq` (for parsing JSON input)
 - `git` (for git repo detection)
 - `jj` >= 0.36 (optional, for jj repo support)
-```
 
