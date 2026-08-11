@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-08-11
+
 ### Added
 - comment-slop skill: "Abstracting is not the fix either" — names the second failed-repair pattern (swapping a comment's concrete anchors for a general-convention citation, which survives casual inspection while failing clause 3 wherever the convention has a documented home), adds mode 1's sibling paste-test heuristic (equally true on every sibling ⇒ architecture doc, not a code comment), requires re-running the three-clause test on every rewrite's output, and cautions that resemblance to a skill example is not a verdict (comment-slop v1.2.0)
 
@@ -679,7 +681,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Marketplace metadata and owner information
 - Plugin entry with `skills` field for proper skill loading
 
-[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.47.0...HEAD
+[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.48.0...HEAD
+[0.48.0]: https://github.com/dashed/claude-marketplace/compare/v0.47.0...v0.48.0
 [0.47.0]: https://github.com/dashed/claude-marketplace/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/dashed/claude-marketplace/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/dashed/claude-marketplace/compare/v0.44.0...v0.45.0
