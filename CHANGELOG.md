@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- comment-slop skill: "Abstracting is not the fix either" — names the second failed-repair pattern (swapping a comment's concrete anchors for a general-convention citation, which survives casual inspection while failing clause 3 wherever the convention has a documented home), adds mode 1's sibling paste-test heuristic (equally true on every sibling ⇒ architecture doc, not a code comment), requires re-running the three-clause test on every rewrite's output, and cautions that resemblance to a skill example is not a verdict (comment-slop v1.2.0)
+
 ## [0.47.0] - 2026-08-07
 
 ### Added

@@ -4,6 +4,18 @@ All notable changes to the comment-slop skill in this marketplace will be docume
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2026-08-11
+
+### Added
+- "Abstracting is not the fix either": names the second failed-repair pattern — a rewrite that swaps a comment's concrete anchors (who acts, through what mechanism, on what) for a citation of the general convention. A why-shaped fact survives casual inspection but fails clause 3 wherever the convention has a documented home. Built from the same review site as the trimming example, whose repaired wording drew a second review flag one round later in its abstracted form
+- Mode 1 gains the sibling paste-test heuristic: a comment equally true pasted onto every neighboring declaration documents the architecture, not this code — its home is the module docstring or the convention doc, not one method among the many it applies to
+- The rewrite verdict now requires re-running the three-clause test (noun heuristic first) on the rewrite's output — both documented repair failures are rewrites whose output stopped passing
+- The caution that resemblance to one of the skill's own examples is not a verdict: examples locate a failure mode, only the test decides
+
+### Changed
+- Intro names generalizing alongside shortening as the transforms that make slop worse
+- Frontmatter description adds the repeat-flag trigger (a comment a previous cleanup pass already rewrote)
+
 ## [1.1.0] - 2026-08-07
 
 ### Added

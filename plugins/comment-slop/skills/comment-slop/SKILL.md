@@ -1,6 +1,6 @@
 ---
 name: comment-slop
-description: "Find and remove AI-slop comments — ones that restate the code, describe another layer's behavior, or narrate planning that never shipped — while protecting the comments that carry real reasoning. Use when a reviewer calls a comment useless, unclear, or AI-written; when auditing or cleaning up comments and docstrings on a branch, diff, or PR; when comments should be reduced, simplified, or restyled to ASD-STE100 / simplified technical English; or before sending a change for review."
+description: "Find and remove AI-slop comments — ones that restate the code, describe another layer's behavior, or narrate planning that never shipped — while protecting the comments that carry real reasoning. Use when a reviewer calls a comment useless, unclear, or AI-written — including one a previous cleanup pass already rewrote; when auditing or cleaning up comments and docstrings on a branch, diff, or PR; when comments should be reduced, simplified, or restyled to ASD-STE100 / simplified technical English; or before sending a change for review."
 license: MIT
 ---
 
@@ -14,7 +14,7 @@ A comment earns its place only if it states a fact that is:
 
 Every slop comment fails one of those three clauses. That is the whole diagnosis. The rest of this skill is how to apply it, and — just as important — how to recognize the comments that pass, so a cleanup pass does not delete the reasoning that was worth keeping.
 
-Slop is not a length problem. It is a content-selection problem, which is why shortening comments makes it worse rather than better (see *Trimming is not the fix*).
+Slop is not a length problem. It is a content-selection problem, which is why shortening or generalizing comments makes it worse rather than better (see *Trimming is not the fix* and *Abstracting is not the fix either*).
 
 ## When to Use
 
@@ -47,6 +47,8 @@ User parameters go in, a proto comes out. No package crosses this boundary. "Use
 **Fix**: say what an empty result means *at this layer* ("the contract stores no override") and stop. Whoever consumes the empty proto decides what to do about it.
 
 **Heuristic**: name every noun in the comment. If a noun never appears in the parameters, the return type, the body, or the things the body calls, the comment is describing somewhere else.
+
+**Second heuristic — the sibling paste-test**: would the comment be just as true pasted onto the neighboring declarations in the same file? A comment equally true on every sibling documents the architecture, not this code. If the fact is worth writing down, its home is the module docstring or the convention doc — not one method among the many it applies to.
 
 ### 2. Redundant with the line next to it
 
@@ -166,6 +168,31 @@ The specificity (which callers, through what) and the reason (the package bounda
 
 The judgment a mechanical pass cannot make: **a comment that survives trimming with only obvious statements left should be deleted, not shortened.** Decide keep-or-delete first. Only then edit wording — to fix the layer, the mood, an undefined term, or to apply the style rules below.
 
+## Abstracting is not the fix either
+
+Trimming has a sibling failure: rewriting a comment so that its concrete anchors — who acts, through what mechanism, on what — become a citation of the general convention. A why-shaped fact survives, so the result passes a casual "does it explain why?" check. It still fails the test: a convention with a documented home (the architecture doc, a CLAUDE.md rule, the module docstring) fails clause 3 wherever it is restated, and the anchors were the part a reviewer could check.
+
+The same site as the trimming example, one review round later. The flagged trimmed version was repaired — by abstracting:
+
+```python
+# The original (anchored: who, through what, for what):
+# A sibling service may only reach this package through its `__init__`, so this
+# is the write's supported entry point.
+
+# The repair (anchors replaced by a policy citation — flagged in the next
+# review round: "seems not helpful AI generated, can delete it"):
+# A service package exports only its service class. This method is
+# therefore the only supported entry point for the write from outside
+# the package.
+```
+
+Nothing in the second version is false. But run mode 1's noun heuristic on it: "service package" and "service class" appear nowhere in the method it sits on. When the anchors went, the comment stopped being about this code — it became the project's export rule, restated on one arbitrary method among the many it applies to (the sibling paste-test in mode 1).
+
+Two rules fall out of this case:
+
+- **Resemblance to an example is not a verdict.** The abstracted repair superficially matches the good "Before" comment in the trimming example — package, exports, "supported entry point". Examples locate a failure mode; only the three-clause test decides. Run the test on the words in front of you, not on the example they remind you of.
+- **A rewrite is a new comment.** This one failed review twice: once as a trim, once as an abstraction — each repair was checked against the previous complaint instead of the test. Re-run the three clauses (start with the noun heuristic) on every rewrite's output. Output that cannot pass becomes a delete — which is what the reviewer suggested here.
+
 ## Style for what survives (ASD-STE100)
 
 Style is the second pass, never the first. Content selection (keep / rewrite / delete) decides *which facts* a comment states; only then does style decide *how the sentences say them*. Run the two in the other order and you get the trimming failure above.
@@ -215,7 +242,7 @@ A comment asserting a fact may simply be stale: the code moved and the sentence 
 | Verdict | When |
 |---|---|
 | **keep** | Passes all three clauses. Leave it alone — rewording a good comment is churn that hides the real edits. |
-| **rewrite** | The fact is real but stated at the wrong layer, in the wrong mood, with an undefined term, or wrapped in redundant restatement. Restate it at this layer, or *reduce* it — delete the clauses that fail the test, keep the ones that pass. Then apply the [style rules](#style-for-what-survives-asd-ste100). Reduction is selection by the test, not compression. |
+| **rewrite** | The fact is real but stated at the wrong layer, in the wrong mood, with an undefined term, or wrapped in redundant restatement. Restate it at this layer, or *reduce* it — delete the clauses that fail the test, keep the ones that pass. Then apply the [style rules](#style-for-what-survives-asd-ste100). Reduction is selection by the test, not compression. The output is a new comment: re-run the test on it, starting with the noun heuristic — trimming and abstracting are both repairs whose output stopped passing. |
 | **delete** | Once the wrong-layer content and the already-visible content are removed, nothing is left. |
 
 Expect the pass to be a net deletion. Adding a fresh explanatory paragraph where a bad one was removed is how the next reviewer arrives at the same complaint.
