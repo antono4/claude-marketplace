@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-08-12
+
 ### Added
 - jj-hunk skill: programmatic hunk selection for the jj (Jujutsu) VCS - select individual diff hunks with a query language instead of an interactive TUI, then split, commit, squash, diffedit, restore, or absorb them. Covers the eight subcommands, the per-verb semantics table (`diffedit` **keeps** what you name; `restore` **undoes** it), the list-preview-act-by-id workflow, the hunkset query language, and a message-to-cause troubleshooting table. Five references carry the detail: the full predicate language, per-verb flags, hunk-ID lifetime, JSON specs and raw `jj --tool` usage, and the multi-agent extraction workflow (jj-hunk v1.0.0)
 - jj-hunk skill: the sharp edges an agent hits silently - `restore` reads its ids from a **reversed** `destination -> source` listing so a forward id never resolves; `absorb` exits **0** when it refuses; content-level predicates (`content`, `added`, `removed`, `lines`, `id`) can never reach a binary, symlink, mode-only flip, pure rename or empty add, so a `content()`-only split leaves all of them behind at exit 0 with nothing on stderr; `file()`/`glob()` match a renamed file under **both** paths; the commit message is positional, not `-m`. Every command, listing and error string was verified against a `jj-hunk 0.4.1-my-jj-hunk` semantic build on jj 0.44.0 (jj-hunk v1.0.0)
@@ -701,7 +703,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Marketplace metadata and owner information
 - Plugin entry with `skills` field for proper skill loading
 
-[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.49.0...HEAD
+[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.50.0...HEAD
+[0.50.0]: https://github.com/dashed/claude-marketplace/compare/v0.49.0...v0.50.0
 [0.49.0]: https://github.com/dashed/claude-marketplace/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/dashed/claude-marketplace/compare/v0.47.0...v0.48.0
 [0.47.0]: https://github.com/dashed/claude-marketplace/compare/v0.46.0...v0.47.0
