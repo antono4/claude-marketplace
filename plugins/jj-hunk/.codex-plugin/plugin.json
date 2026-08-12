@@ -1,0 +1,35 @@
+{
+  "name": "jj-hunk",
+  "version": "1.0.0+codex.a3f91606b3c2",
+  "description": "Programmatic hunk selection for the jj (Jujutsu) VCS. Select individual diff hunks with a query language instead of an interactive TUI, then split, commit, squash, diffedit, restore, or absorb them. Use when splitting a jj commit, committing or squashing part of the working copy, undoing single hunks, selecting changes by file/content/function/class, or when `jj split -i` would need an editor an agent cannot drive.",
+  "author": {
+    "name": "Alberto Leal"
+  },
+  "license": "MIT",
+  "keywords": [
+    "jj",
+    "jujutsu",
+    "hunk",
+    "vcs",
+    "version-control",
+    "split",
+    "squash",
+    "absorb",
+    "non-interactive"
+  ],
+  "interface": {
+    "displayName": "jj Hunk",
+    "shortDescription": "Programmatic hunk selection for the jj (Jujutsu) VCS. Select individual diff hunks with a query language instead of an interactive TUI, then split, commit, squash, diffedit...",
+    "longDescription": "Programmatic hunk selection for the jj (Jujutsu) VCS. Select individual diff hunks with a query language instead of an interactive TUI, then split, commit, squash, diffedit, restore, or absorb them. Use when splitting a jj commit, committing or squashing part of the working copy, undoing single hunks, selecting changes by file/content/function/class, or when `jj split -i` would need an editor an agent cannot drive.",
+    "developerName": "Alberto Leal",
+    "category": "Productivity",
+    "capabilities": [
+      "Skills"
+    ],
+    "defaultPrompt": [
+      "Use $jj-hunk for this task."
+    ]
+  },
+  "repository": "https://github.com/dashed/claude-marketplace/tree/master/plugins/jj-hunk",
+  "skills": "./skills/"
+}

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- jj-hunk skill: programmatic hunk selection for the jj (Jujutsu) VCS - select individual diff hunks with a query language instead of an interactive TUI, then split, commit, squash, diffedit, restore, or absorb them. Covers the eight subcommands, the per-verb semantics table (`diffedit` **keeps** what you name; `restore` **undoes** it), the list-preview-act-by-id workflow, the hunkset query language, and a message-to-cause troubleshooting table. Five references carry the detail: the full predicate language, per-verb flags, hunk-ID lifetime, JSON specs and raw `jj --tool` usage, and the multi-agent extraction workflow (jj-hunk v1.0.0)
+- jj-hunk skill: the sharp edges an agent hits silently - `restore` reads its ids from a **reversed** `destination -> source` listing so a forward id never resolves; `absorb` exits **0** when it refuses; content-level predicates (`content`, `added`, `removed`, `lines`, `id`) can never reach a binary, symlink, mode-only flip, pure rename or empty add, so a `content()`-only split leaves all of them behind at exit 0 with nothing on stderr; `file()`/`glob()` match a renamed file under **both** paths; the commit message is positional, not `-m`. Every command, listing and error string was verified against a `jj-hunk 0.4.1-my-jj-hunk` semantic build on jj 0.44.0 (jj-hunk v1.0.0)
+- jj-hunk skill: the install command is `cargo install --git https://github.com/dashed/jj-hunk`, with an explicit warning that the crates.io `jj-hunk` name is a **different project** (`laulauland/jj-hunk`, latest published 0.3.0) that has no `[features]` section and no hunkset query language - so `cargo install jj-hunk --features semantic`, the form the tool's own docs use, would fail or silently install a binary that cannot run most of what the skill documents (jj-hunk v1.0.0)
+- jj skill: `references/jj-hunk.md` - conditional integration with the optional `jj-hunk` tool, with detection via `command -v jj-hunk`, a fallback table for when it is absent, a mapping from each interactive jj verb to its jj-hunk counterpart, and the traps that bite an automated caller. Pointers added at the three places where hunk-level selection is the natural next step: "No Staging Area", "Editing a Previous Commit", and "Inherently Interactive Commands" (jj v1.9.0)
+
+### Changed
+- jj skill: two code blocks whose commands are covered elsewhere in SKILL.md became prose, keeping the file inside the 500-line guideline while adding the jj-hunk pointers (499 to 491 lines) (jj v1.9.0)
+
 ## [0.49.0] - 2026-08-11
 
 ### Added

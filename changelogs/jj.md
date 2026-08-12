@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-08-12
+
+### Added
+- `references/jj-hunk.md`: conditional integration with the external [`jj-hunk`](https://github.com/dashed/jj-hunk) tool, which brings non-interactive hunk selection to `jj split`, `jj squash`, `jj diffedit`, `jj restore` and `jj absorb`. Covers detection (`command -v jj-hunk`), the fallback when it is absent, a verb-mapping table from each jj command to its jj-hunk counterpart, the per-verb selection semantics, and the traps that bite an automated caller — `restore`'s reversed hunk ids, `absorb` exiting 0 on a refusal, and content-level predicates silently skipping binaries, symlinks, mode flips, pure renames and empty adds
+- SKILL.md pointers to that reference from the three places where hunk-level selection is the natural next step: "No Staging Area", "Editing a Previous Commit", and "Inherently Interactive Commands"
+
+### Changed
+- SKILL.md line budget: "Working Copy as a Commit" and "First-Class Conflicts" each lost a code block whose commands are already covered elsewhere in the file (the Essential Commands table and the "Resolving Conflicts" section respectively), becoming prose. That paid for the jj-hunk pointers with room to spare - 499 lines to 491, against the 500-line guideline
+
 ## [1.8.0] - 2026-08-06
 
 Updates the skill from a jj 0.41.0 baseline to **jj 0.44.0** (covering the 0.42, 0.43, and 0.44 releases). Every claim was verified against the live 0.44.0 binary — `--help`, `jj config list --include-defaults`, the v0.44.0 config schema, and scratch repos with real bare-git remotes. Documentation pinned at the `v0.44.0` tag was used in preference to the upstream working tree, which is already past the release.

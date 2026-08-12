@@ -29,13 +29,7 @@ Jujutsu is a powerful Git-compatible version control system that combines ideas 
 
 ### Working Copy as a Commit
 
-In jj, the working copy is always a commit. Changes are automatically snapshotted:
-
-```bash
-# No need for 'git add' - changes are tracked automatically
-jj status        # Shows working copy state
-jj diff          # Shows changes in working copy commit
-```
+In jj, the working copy is always a commit and changes are snapshotted automatically. There is no `git add`; `jj status` and `jj diff` report the working-copy commit.
 
 ### When Snapshots Are Triggered
 
@@ -59,18 +53,11 @@ Instead of staging, use these patterns:
 - `jj split` - Split working copy into multiple commits
 - `jj squash -i` - Interactively move changes to parent
 - Direct editing with `jj diffedit`
+- Hunk-level selection **without** a TUI: the external `jj-hunk` tool, if installed - see [references/jj-hunk.md](references/jj-hunk.md)
 
 ### First-Class Conflicts
 
-Conflicts are recorded in commits, not blocking operations:
-
-```bash
-jj rebase -s X -o Y     # Succeeds even with conflicts
-jj log                   # Shows conflicted commits with ×
-jj new <conflicted>      # Work on top of conflict
-# Edit files to resolve, then:
-jj squash                # Move resolution into parent
-```
+Conflicts are recorded in commits, not blocking operations: `jj rebase -s X -o Y` succeeds even when it conflicts, and `jj log` marks the result with ×. Resolve whenever convenient - see [Resolving Conflicts](#resolving-conflicts).
 
 ### Operation Log
 
@@ -137,6 +124,8 @@ jj squash -i              # Interactively select changes
 jj absorb                 # Each hunk goes to commit that last changed those lines
 jj absorb -i              # (0.44+) Pick which hunks to consider; rest stay in source
 ```
+
+**Non-interactively:** `-i` opens the `:builtin` diff editor, which automation cannot drive. If `command -v jj-hunk` succeeds, `jj-hunk squash 'function("handle_request")'` and `jj-hunk absorb --dry-run` do the same work from a query. See [references/jj-hunk.md](references/jj-hunk.md).
 
 ### Running a Command Across a Stack (`jj run`, 0.43+)
 
@@ -387,6 +376,7 @@ For comprehensive documentation, see:
 - [references/commands.md](references/commands.md) - Full command reference
 - [references/configuration.md](references/configuration.md) - Configuration reference
 - [references/git-comparison.md](references/git-comparison.md) - Git to jj command mapping
+- [references/jj-hunk.md](references/jj-hunk.md) - Non-interactive hunk selection with the optional `jj-hunk` tool
 
 ## Troubleshooting
 
@@ -443,6 +433,8 @@ jj restore --from <rev> <file>      # Take file from specific revision
 ### Inherently Interactive Commands
 
 Cannot be made non-interactive: `jj diffedit`, `jj arrange` (TUI), `jj resolve` without `--tool`, and `jj split` without file arguments (workaround: pass paths, e.g. `jj split -m "First part" src/file1.rs`).
+
+Path arguments cannot go finer than a whole file. For hunk-level selection with no editor, the optional `jj-hunk` tool covers `split`, `commit`, `squash`, `diffedit`, `restore` and `absorb` - see [references/jj-hunk.md](references/jj-hunk.md).
 
 ## Common Pitfalls
 

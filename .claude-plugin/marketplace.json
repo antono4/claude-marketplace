@@ -194,7 +194,7 @@
     },
     {
       "name": "jj",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "source": "./plugins/jj",
       "description": "Jujutsu (jj) version control system - a Git-compatible VCS with novel features. Use when working with jj repositories, managing stacked commits, needing automatic rebasing with first-class conflict handling, using revsets to select commits, or wanting enhanced Git workflows. Triggers on mentions of 'jj', 'jujutsu', change IDs, or operation log.",
       "author": {
@@ -1300,6 +1300,32 @@
         "ai-slop",
         "refactoring",
         "documentation"
+      ],
+      "strict": false,
+      "skills": [
+        "./skills"
+      ]
+    },
+    {
+      "name": "jj-hunk",
+      "version": "1.0.0",
+      "source": "./plugins/jj-hunk",
+      "description": "Programmatic hunk selection for the jj (Jujutsu) VCS. Select individual diff hunks with a query language instead of an interactive TUI, then split, commit, squash, diffedit, restore, or absorb them. Use when splitting a jj commit, committing or squashing part of the working copy, undoing single hunks, selecting changes by file/content/function/class, or when `jj split -i` would need an editor an agent cannot drive.",
+      "author": {
+        "name": "Alberto Leal"
+      },
+      "repository": "https://github.com/dashed/claude-marketplace/tree/master/plugins/jj-hunk",
+      "license": "MIT",
+      "keywords": [
+        "jj",
+        "jujutsu",
+        "hunk",
+        "vcs",
+        "version-control",
+        "split",
+        "squash",
+        "absorb",
+        "non-interactive"
       ],
       "strict": false,
       "skills": [
