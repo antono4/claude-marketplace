@@ -1,6 +1,6 @@
 ---
 name: comment-slop
-description: "Find and remove AI-slop comments — ones that restate the code, describe another layer's behavior, or narrate planning that never shipped — while protecting the comments that carry real reasoning. Use when a reviewer calls a comment useless, unclear, or AI-written — including one a previous cleanup pass already rewrote; when auditing or cleaning up comments and docstrings on a branch, diff, or PR; when comments should be reduced, simplified, or restyled to ASD-STE100 / simplified technical English; or before sending a change for review."
+description: "Find and remove AI-slop comments — ones that restate the code, describe another layer's behavior, or narrate planning that never shipped — while protecting the comments that carry real reasoning. Use when a reviewer calls a comment useless, unclear, or AI-written — including one a previous cleanup pass already rewrote; when auditing or cleaning up comments and docstrings on a branch, diff, or PR; when comments should be reduced, simplified, or restyled to ASD-STE100 / simplified technical English; when deciding whether new code needs a comment and what it should say; or before sending a change for review."
 license: MIT
 ---
 
@@ -13,6 +13,8 @@ A comment earns its place only if it states a fact that is:
 3. **Not stated better nearby** — in the signature, in the module docstring, in a test name, or on the very next line.
 
 Every slop comment fails one of those three clauses. That is the whole diagnosis. The rest of this skill is how to apply it, and — just as important — how to recognize the comments that pass, so a cleanup pass does not delete the reasoning that was worth keeping.
+
+This is the operational form of the familiar rule: **comment the why, not the what or the how.** Code with descriptive names already tells the reader what it does, and the body is the how — a comment restating either fails clause 2. What the code cannot say is the why: context from outside the file, the business rule being implemented, the design decision that looks wrong until explained (the keep table below). But the folk rule is a compass, not a verdict — a why-shaped sentence still fails when it describes another layer or restates a convention with a documented home (see *Abstracting is not the fix either*). The three clauses decide, and the burden of proof sits on the comment: the default verdict is delete, and a comment that cannot show a pass does not get one.
 
 Slop is not a length problem. It is a content-selection problem, which is why shortening or generalizing comments makes it worse rather than better (see *Trimming is not the fix* and *Abstracting is not the fix either*).
 
@@ -127,7 +129,7 @@ A comment is load-bearing if deleting it leaves a reader with a question the cod
 | explains **why** this approach and not the obvious one | Would a competent reader "simplify" the code away if the comment were gone? |
 | names a race, a lock's purpose, or an ordering constraint | Does it say what breaks without the ordering? |
 | states an invariant and what enforces it | Is the invariant impossible to see from one function? |
-| carries context from an external system, spec, or requirement | Is that fact unavailable anywhere else in the repo? |
+| carries context from an external system, spec, or business rule | Is that fact unavailable anywhere else in the repo? |
 | records a deliberate trade-off | Does it name the cost that was accepted? |
 | justifies a guard that looks removable | Would deleting the guard still pass the tests? |
 
@@ -145,7 +147,26 @@ Two that pass:
 
 Both state a fact that is invisible in the code and true at this layer. Neither is short.
 
-**The asymmetry**: deleting a load-bearing comment is worse than leaving a bland one. A bland comment costs a reader two seconds; a deleted rationale costs the next person the bug the rationale was preventing. When genuinely torn, keep it and move on.
+**The default is delete.** The burden of proof sits on the comment: a keep must show its pass — name the row of this table it satisfies and the fact the code cannot state. "It might help someone" is not a pass; every slop comment might help someone. Doubt protects exactly one shape of comment: one that asserts a why — a rationale, an ordering constraint, a trade-off — that you cannot cheaply verify from the code in front of you. Deleting a real rationale costs the next person the bug it was preventing, which is worse than any bland comment; a comment of that shape survives being torn over. A restatement of the visible never does.
+
+## The what belongs in the code
+
+When you are writing or changing code — not just auditing its comments — the order is: make the code state the *what* (descriptive names, extracted variables, named constants), then comment only the *why* that survives. A name cannot drift from the code the way a comment can, and nobody has to decide later whether it earned its place.
+
+```python
+# The comment carries what a name could:
+n = 3  # maximum retry attempts
+
+# The name carries it, and no comment is needed:
+MAX_RETRY_ATTEMPTS = 3
+```
+
+In an audit the same rule runs backward. A *what*-comment that resists deletion — removing it really would leave the reader lost — is not a keep; it is evidence the code under it is unclear. A vague name, a magic value, an expression doing more than its parts admit. Fix the code — rename, extract, name the constant — then delete the comment.
+
+Two boundaries:
+
+- **A rename is a code change.** Behavior-neutral, but it breaks the docs-only diff of workflow step 6. Commit it separately from the comment cleanup.
+- **Only the what moves into names.** No identifier is descriptive enough to carry a trade-off, a race, or an external requirement — the keep table is out of renaming's reach. "The code documents itself" never licenses deleting a why.
 
 ## Trimming is not the fix
 
@@ -241,9 +262,9 @@ A comment asserting a fact may simply be stale: the code moved and the sentence 
 
 | Verdict | When |
 |---|---|
-| **keep** | Passes all three clauses. Leave it alone — rewording a good comment is churn that hides the real edits. |
+| **keep** | Demonstrably passes all three clauses — it can name the keep-table fact the code cannot state. Leave it alone — rewording a good comment is churn that hides the real edits. |
 | **rewrite** | The fact is real but stated at the wrong layer, in the wrong mood, with an undefined term, or wrapped in redundant restatement. Restate it at this layer, or *reduce* it — delete the clauses that fail the test, keep the ones that pass. Then apply the [style rules](#style-for-what-survives-asd-ste100). Reduction is selection by the test, not compression. The output is a new comment: re-run the test on it, starting with the noun heuristic — trimming and abstracting are both repairs whose output stopped passing. |
-| **delete** | Once the wrong-layer content and the already-visible content are removed, nothing is left. |
+| **delete** | The default. Once the wrong-layer content and the already-visible content are removed, nothing is left — and doubt is not a pass. For a *what*-comment that resists deletion because the code is unclear, fix the code, then delete (see *The what belongs in the code*). |
 
 Expect the pass to be a net deletion. Adding a fresh explanatory paragraph where a bad one was removed is how the next reviewer arrives at the same complaint.
 

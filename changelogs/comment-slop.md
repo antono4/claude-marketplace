@@ -4,6 +4,20 @@ All notable changes to the comment-slop skill in this marketplace will be docume
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 2026-08-11
+
+### Added
+- The familiar why/what/how rule stated as the folk form of the three-clause test: descriptive names already tell the reader the what and the body is the how (both fail clause 2 when restated), so comments are reserved for the why the code cannot state — outside context, the business rule being implemented, the design decision that looks wrong until explained. With the compass-not-verdict caution: a why-shaped sentence still fails when it sits at the wrong layer or restates a documented convention
+- "The what belongs in the code": the generative ordering (make the code state the what via names, extracted variables, and named constants, then comment only the why that survives) and its audit-side inversion — a what-comment that resists deletion is evidence the code under it is unclear, and the fix is rename/extract/name-the-constant plus delete, not a keep. Bounded on both sides: a rename is a code change committed separately from the docs-only cleanup, and only the what moves into names — "the code documents itself" never licenses deleting a why
+
+### Changed
+- The verdict default flips to delete: the burden of proof sits on the comment, a keep must name the keep-table fact the code cannot state, and doubt is not a pass. The former keep-when-torn asymmetry survives only in its narrow real case — a comment asserting a rationale, ordering constraint, or trade-off that cannot be cheaply verified; a restatement of the visible never qualifies
+- Keep table: the external-context row names business rules explicitly
+- Frontmatter description adds the deciding-whether-new-code-needs-a-comment trigger
+
+### Fixed
+- marketplace.json description brought back under the schema's 500-character cap (the v1.2.0 description was 591 characters, which made `make validate-strict` fail); the trigger list stays, the feature inventory moves to SKILL.md and this changelog
+
 ## [1.2.0] - 2026-08-11
 
 ### Added

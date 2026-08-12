@@ -1284,9 +1284,9 @@
     },
     {
       "name": "comment-slop",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "source": "./plugins/comment-slop",
-      "description": "Find and remove AI-slop comments — ones that restate the code, describe another layer's behavior, or narrate planning that never shipped — while protecting the comments that carry real reasoning. Use when a reviewer calls a comment useless or AI-written, when auditing comments and docstrings on a branch or PR, or before sending a change for review. Encodes a three-clause test, a seven-mode taxonomy, a diff-scoped keep/rewrite/delete workflow with a re-test rule for rewrites, an ASD-STE100 style pass for survivors, and the two repair failures (trimming, abstracting) that recreate slop.",
+      "description": "Find and remove AI-slop comments — ones that restate the code, describe another layer's behavior, or narrate planning that never shipped — while keeping the comments that carry real reasoning. Comment the why, not the what or how: names carry the what, and delete is the default verdict. Use when a reviewer calls a comment useless or AI-written, when auditing comments and docstrings on a branch or PR, when deciding whether new code needs a comment, or before sending a change for review.",
       "author": {
         "name": "Alberto Leal"
       },

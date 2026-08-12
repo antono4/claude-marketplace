@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- comment-slop skill: encodes the why-not-what/how rule as the folk form of the three-clause test (names carry the what, the body is the how, comments are reserved for the why the code cannot state — with the caution that a why-shaped sentence can still fail), plus "The what belongs in the code" — the generative ordering and its audit inversion, where a what-comment that resists deletion indicts the code and the fix is rename/extract then delete (comment-slop v1.3.0)
+
+### Changed
+- comment-slop skill: the verdict default flips to delete — the burden of proof sits on the comment and doubt is not a pass; the keep-when-torn asymmetry survives only for comments asserting an unverifiable why (comment-slop v1.3.0)
+
+### Fixed
+- comment-slop skill: marketplace.json description brought back under the schema's 500-character cap — the v1.2.0 description was 591 characters, which made `make validate-strict` fail at HEAD (comment-slop v1.3.0)
+
 ## [0.48.0] - 2026-08-11
 
 ### Added
