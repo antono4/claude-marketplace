@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-08-11
+
 ### Added
 - comment-slop skill: encodes the why-not-what/how rule as the folk form of the three-clause test (names carry the what, the body is the how, comments are reserved for the why the code cannot state — with the caution that a why-shaped sentence can still fail), plus "The what belongs in the code" — the generative ordering and its audit inversion, where a what-comment that resists deletion indicts the code and the fix is rename/extract then delete (comment-slop v1.3.0)
 
@@ -690,7 +692,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Marketplace metadata and owner information
 - Plugin entry with `skills` field for proper skill loading
 
-[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.48.0...HEAD
+[Unreleased]: https://github.com/dashed/claude-marketplace/compare/v0.49.0...HEAD
+[0.49.0]: https://github.com/dashed/claude-marketplace/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/dashed/claude-marketplace/compare/v0.47.0...v0.48.0
 [0.47.0]: https://github.com/dashed/claude-marketplace/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/dashed/claude-marketplace/compare/v0.45.0...v0.46.0
